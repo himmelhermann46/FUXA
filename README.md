@@ -6,6 +6,8 @@ FUXA is a web-based Process Visualization (SCADA/HMI/Dashboard) software. With F
 
 ![fuxa ani](/screenshot/fuxa-ani.gif)
 
+![fuxa action](/screenshot/feature-action-move.gif)
+
 ## Features
 - Devices connectivity with Modbus RTU/TCP, Siemens S7 Protocol, OPC-UA, BACnet IP, MQTT, Ethernet/IP (Allen Bradley)
 - SCADA/HMI Web-Editor - Engineering and Design completely web-based
@@ -17,34 +19,75 @@ Here is a [live demo](https://frangoteam.github.io) example of FUXA editor.
 ## Installing and Running
 FUXA is developed with NodeJS (backend) and Angular (frontend).
 
-You need to have installed [Node](https://nodejs.org) (Version 10, 12 or 14) and NPM (Version >= 6.11 and < 7.xx).
-
-Install from [NPM](https://www.npmjs.com/package/@frangoteam/fuxa) (first option)
-```
-npm install -g --unsafe-perm @frangoteam/fuxa
-fuxa
-```
-
-Or [Download the latest release](https://github.com/frangoteam/FUXA/releases) and unpack it (second option)
-```
-cd ./server
-npm install
-npm start
-```
-
-Or in linux running from docker (third option)
+### Running from docker
 ```
 docker pull frangoteam/fuxa:latest
 docker run -d -p 1881:1881 frangoteam/fuxa:latest
 
 // persistent storage of application data (project), daq (tags history), logs and images (resource)
 docker run -d -p 1881:1881 -v fuxa_appdata:/usr/src/app/FUXA/server/_appdata -v fuxa_db:/usr/src/app/FUXA/server/_db -v fuxa_logs:/usr/src/app/FUXA/server/_logs -v fuxa_images:/usr/src/app/FUXA/server/_images frangoteam/fuxa:latest
+
+// with Docker compose
+// persistent storage will be at ./appdata ./db ./logs and ./images
+wget https://raw.githubusercontent.com/frangoteam/FUXA/master/compose.yml
+docker compose up -d
+```
+
+### Install from [NPM](https://www.npmjs.com/package/@frangoteam/fuxa)
+
+You need to have installed [Node](https://nodejs.org/en/about/previous-releases) Version 14 || 16 || 18.
+
+**WARNING** In linux with nodejs Version 16 || 18 the installation could be a challenge.
+If you don't intend communicate with Siemens PLCs via S7 (node-snap7 library) you can install from [NPM @frangoteam/fuxa-min](https://www.npmjs.com/package/@frangoteam/fuxa-min)
+
+```
+npm install -g --unsafe-perm @frangoteam/fuxa
+fuxa
+```
+
+### Install from source
+[Download the latest release](https://github.com/frangoteam/FUXA/releases) and unpack it
+
+You need to have installed [Node](https://nodejs.org/en/about/previous-releases) Version 14 || 16 || 18.
+
+**WARNING** In linux with nodejs Version 16 || 18 the installation could be a challenge.
+If you don't intend communicate with Siemens PLCs via S7 you can remove the node-snap7 library from the server/package.json
+
+```
+cd ./server
+npm install
+npm start
 ```
 
 Open up a browser (better Chrome) and navigate to http://localhost:1881
 
+### Creating the Electron Application
+Electron is a framework for building cross-platform desktop applications using web technologies. An Electron application is standalone, meaning it can be run independently on your desktop without needing a web browser.
+
+To create the Electron application, you need to have node.js 18 installed. Follow these steps:
+
+Build Server and Client First
+```
+cd ./server
+npm install
+cd ../client
+npm install
+npm run build
+```
+
+Packaging
+```
+cd ./app
+npm install
+npm run package
+```
+
+After following these steps, you will have a standalone Electron application for FUXA. The application can be found in the ./app directory.
+
 ## Usage
-Look the guide in [wiki](https://github.com/frangoteam/FUXA/wiki) pages
+- Look the guide in [wiki](https://github.com/frangoteam/FUXA/wiki) pages
+- Look video from [frangoteam](https://www.youtube.com/@umbertonocelli5301)
+- Look video from [Fusion Automate - Urvish Nakum](https://youtube.com/playlist?list=PLxrSjjYyzaaK8uY3kVaFzfGnwhVXiCEAO&si=aU1OxgkUvLQ3bXHq)
 
 ## To Debug (Full Stack)
 Install and start to serve the frontend
@@ -63,7 +106,7 @@ In vscode: Debug ‘Server & Client’
 Build the frontend for production
 ```
 cd ./client
-ng build --prod
+ng build --configuration=production
 ```
 
 ## Contributing
@@ -86,8 +129,16 @@ Please ensure you follow the coding standards used through-out the existing code
 - Indent with 4-spaces, no tabs.
 - Opening brace on same line as if/for/function and so on, closing brace on its own line.
 
+## Some collaborations
+<div >
+    <a href="https://wiki.seeedstudio.com/reTerminal-DM_intro_FUXA/" target="_blank" style="margin-right: 100px; line-height: 60px">
+        <img src="https://frangoteam.org/assets/images/seeed-studio2.png" alt="" style="vertical-align: top"></a>
+</div>
+
 ## Let us know!
-We’d be really happy if you send us your own shapes in order to collect a library to share it with others. Just send an email to 4frango@gmail.com and do let us know if you have any questions or suggestions regarding our work.
+We’d be really happy if you send us your own shapes in order to collect a library to share it with others. Just send an email to info@frangoteam.org and do let us know if you have any questions or suggestions regarding our work.
+
+## <a href="https://discord.gg/WZhxz9uHh4" target="_blank" > <img src="https://skillicons.dev/icons?i=discord" alt=""></a>
 
 ## License
 MIT.

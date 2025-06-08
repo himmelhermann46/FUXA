@@ -1,8 +1,7 @@
 
 import { Component, Output, EventEmitter } from '@angular/core';
 import { GraphSource, GraphRangeType, GraphDateGroupType } from '../../../../_models/graph';
-import { ChartOptions, GridLineOptions, ChartType, ChartColor, ChartYAxe } from 'chart.js';
-import { Utils } from '../../../../_helpers/utils';
+import { ChartOptions, GridLineOptions, ChartType } from 'chart.js';
 import { DaqQuery } from '../../../../_models/hmi';
 @Component({
     template: ''
@@ -13,6 +12,7 @@ export class GraphBaseComponent {
     id: string;
     isEditor: boolean;
     public static VerticalBarChartType: ChartType = 'bar';
+    public static PieChartType: ChartType = 'pie';
 
     init? (title: string, property: any, sources?: GraphSource[]): void;
     setOptions? (options: any): void;
@@ -24,36 +24,16 @@ export class GraphBaseComponent {
         let result = <GridLineOptions>{ display: options.gridLinesShow };
         if (options.gridLinesColor) {
             result.color = options.gridLinesColor;
-            result.zeroLineColor = options.gridLinesColor;
+            //result.zeroLineColor = options.gridLinesColor;
         }
         return result;
     }
 
-    public static getTitle(options: GraphOptions, title: string): GridLineOptions {
+    public static getTitle(options: GraphOptions, title: string): string | string[] {
         if (title) {
-            options.title.text = title;
+            options.plugins.title.text = title;
         }
-        return options.title;
-    }
-
-    public static getAxes(axesres: any): ChartYAxe {
-        let result = <ChartYAxe>{ display: axesres.display, ticks: { } };
-        if (Utils.isNumeric(axesres.fontSize)) {
-            result.ticks.fontSize = axesres.fontSize;
-        }
-        if (Utils.isNumeric(axesres.stepSize)) {
-            result.ticks.stepSize = axesres.stepSize;
-        }
-        if (Utils.isNumeric(axesres.min)) {
-            result.ticks.min = parseFloat(axesres.min);
-        }
-        if (Utils.isNumeric(axesres.max)) {
-            result.ticks.max = parseFloat(axesres.max);
-        }
-        if (axesres.fontColor) {
-            result.ticks.fontColor = axesres.fontColor;
-        }
-        return result;
+        return options.plugins.title.text;
     }
 }
 
@@ -74,26 +54,7 @@ export interface GraphOptions extends ChartOptions {
     borderWidth?: number;
     gridLinesShow?: boolean;
     gridLinesColor?: string;
-    yAxes?: {
-        display?: boolean;
-        min: string;
-        max: string;
-        stepSize: number;
-        fontSize: number;
-        fontColor: string;
-    };
-    xAxes?: {
-        display?: boolean;
-        fontSize: number;
-        fontColor: string;
-    };
-    legend?: {
-        display?: boolean;
-        position?: any;
-        align?: any;
-        labels?: {
-            fontColor?: ChartColor;
-            fontSize?: number;
-        };
-    };
+    plugins?: any;
+    scales?: any;
+    backgroundColor?: string;
 }

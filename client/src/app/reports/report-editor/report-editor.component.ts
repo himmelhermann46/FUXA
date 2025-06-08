@@ -1,6 +1,6 @@
-import { AfterViewInit, Component, Inject, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { AfterViewInit, Component, Inject, OnDestroy, OnInit } from '@angular/core';
+import { AbstractControl, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { MatLegacyDialog as MatDialog, MatLegacyDialogRef as MatDialogRef, MAT_LEGACY_DIALOG_DATA as MAT_DIALOG_DATA } from '@angular/material/legacy-dialog';
 import { TranslateService } from '@ngx-translate/core';
 import { Report, ReportDateRangeType, ReportIntervalType, ReportItem, ReportItemAlarms, ReportItemChart, ReportItemTable, ReportItemText, ReportItemType, ReportSchedulingType } from '../../_models/report';
 import * as pdfMake from 'pdfmake/build/pdfmake';
@@ -12,8 +12,11 @@ import { ReportItemAlarmsComponent } from './report-item-alarms/report-item-alar
 import { AlarmPropertyType, AlarmsType } from '../../_models/alarm';
 import { ReportItemChartComponent } from './report-item-chart/report-item-chart.component';
 import { ResourcesService } from '../../_services/resources.service';
-import { forkJoin, Observable, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { forkJoin, Observable, of, Subject } from 'rxjs';
+import { map, takeUntil } from 'rxjs/operators';
+import { ProjectService } from '../../_services/project.service';
+import { PluginService } from '../../_services/plugin.service';
+import { PluginGroupType } from '../../_models/plugin';
 pdfMake.vfs = pdfFonts.pdfMake.vfs;
 
 @Component({
@@ -21,9 +24,9 @@ pdfMake.vfs = pdfFonts.pdfMake.vfs;
     templateUrl: './report-editor.component.html',
     styleUrls: ['./report-editor.component.scss']
 })
-export class ReportEditorComponent implements OnInit, AfterViewInit {
+export class ReportEditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
-    myForm: FormGroup;
+    myForm: UntypedFormGroup;
 
     itemTextType = Utils.getEnumKey(ReportItemType, ReportItemType.text);
     itemTableType = Utils.getEnumKey(ReportItemType, ReportItemType.table);
@@ -32,20 +35,32 @@ export class ReportEditorComponent implements OnInit, AfterViewInit {
     fontSize = [6, 8, 10, 12, 14, 16, 18, 20];
     report: Report;
     schedulingType = ReportSchedulingType;
+    chartImageAvailable$: Observable<boolean>;
+    private destroy$ = new Subject<void>();
 
     private imagesList = {};
 
     constructor(public dialogRef: MatDialogRef<ReportEditorComponent>,
         public dialog: MatDialog,
-        private fb: FormBuilder,
+        private fb: UntypedFormBuilder,
+        private projectService: ProjectService,
         private translateService: TranslateService,
         private resourcesService: ResourcesService,
-        @Inject(MAT_DIALOG_DATA) public data: any) {
+        private pluginService: PluginService,
+        @Inject(MAT_DIALOG_DATA) public data: ReportEditorData) {
 
+        const existingReportNames = this.projectService.getReports()?.filter(report => report.id !== data.report.id)?.map(report => report.name);
         this.report = data.report;
         this.myForm = this.fb.group({
             id: [this.report.id, Validators.required],
-            name: [this.report.name, Validators.required],
+            name: [this.report.name, [Validators.required,
+                (control: AbstractControl) => {
+                    if (existingReportNames?.indexOf(control.value) !== -1) {
+                        return { invalidName: true };
+                    }
+                    return null;
+                }
+            ]],
             receiver: [this.report.receiver],
             scheduling: [this.report.scheduling],
             marginLeft: [this.report.docproperty.pageMargins[0]],
@@ -53,6 +68,11 @@ export class ReportEditorComponent implements OnInit, AfterViewInit {
             marginRight: [this.report.docproperty.pageMargins[2]],
             marginBottom: [this.report.docproperty.pageMargins[3]],
         });
+
+        this.chartImageAvailable$ = this.pluginService.getPlugins().pipe(
+            takeUntil(this.destroy$),
+            map(plugins => plugins.some(plugin => plugin.type === PluginGroupType.Chart && plugin.current))
+        );
     }
 
     ngOnInit() {
@@ -64,6 +84,11 @@ export class ReportEditorComponent implements OnInit, AfterViewInit {
     ngAfterViewInit() {
         this.onReportChanged();
         this.myForm.markAsPristine();
+    }
+
+    ngOnDestroy() {
+        this.destroy$.next();
+        this.destroy$.complete();
     }
 
     onNoClick(): void {
@@ -259,7 +284,7 @@ export class ReportEditorComponent implements OnInit, AfterViewInit {
 
     static getTableContent(item: ReportItemTable) {
         let content = { layout: 'lightHorizontalLines', fontSize: item.size }; // optional
-        let header = item.columns.map<any>(col => ({ text: col.tag.label || col.tag.name, bold: true, style: [{ alignment: col.align }] }));
+        let header = item.columns.map<any>(col => ({ text: col.label || col.tag.label || col.tag.name, bold: true, style: [{ alignment: col.align }] }));
         let values = item.columns.map(col => col.tag.address || '...');
         content['table'] = {
             // headers are automatically repeated if the table spans over multiple pages
@@ -342,4 +367,9 @@ interface DateTimeRange {
 interface ImageItem {
     id: string;
     content: string;
+}
+
+export interface ReportEditorData {
+    report: Report;
+    editmode: number;
 }

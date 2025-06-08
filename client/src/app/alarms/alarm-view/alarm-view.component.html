@@ -37,9 +37,13 @@
             <mat-cell *matCellDef="let element" [style.color]="element.color"> {{(element.acktime) ? (element.acktime | date: 'yyyy.MM.dd HH:mm:ss') : ''}} </mat-cell>
         </ng-container>
         <ng-container matColumnDef="ack">
-            <mat-header-cell *matHeaderCellDef></mat-header-cell>
+            <mat-header-cell *matHeaderCellDef>
+                <button mat-icon-button (click)="onAckAllAlarm()" matTooltip="{{'alarms.view-ack-all-alarms' | translate}}">
+                    <mat-icon>check_circle_outline</mat-icon>
+                </button>
+            </mat-header-cell>
             <mat-cell *matCellDef="let element" [style.color]="element.color">
-                <button mat-icon-button (click)="onAckAlarm(element)" *ngIf="element.toack >= 0" [disabled]="element.toack == 0" class="remove">
+                <button mat-icon-button (click)="onAckAlarm(element)" *ngIf="element.toack >= 0" [disabled]="element.toack === 0" class="remove">
                     <mat-icon>check_circle_outline</mat-icon>
                 </button>
             </mat-cell>
@@ -56,7 +60,7 @@
                     </button>
                     <mat-menu #optionsgMenu [overlapTrigger]="false">
                         <button mat-menu-item (click)="onShowAlarms()" style="font-size: 14px;">{{'alarms.show-current' | translate}}</button>
-                        <button mat-menu-item (click)="onShowAlarmsHistory()" style="font-size: 14px;">{{'alarms.show-history' | translate}}</button>
+                        <button mat-menu-item (click)="picker.open()" style="font-size: 14px;">{{'alarms.show-history' | translate}}</button>
                     </mat-menu>
                     <div style="display: inline-block;padding-left: unset;" *ngIf="!showInContainer">
                         <button mat-icon-button (click)="$event.stopPropagation();onShowMode('expand')" *ngIf="currentShowMode === 'collapse'" class="header-tools-options">
@@ -77,4 +81,17 @@
         <mat-row *matRowDef="let element; columns: displayColumns;" class="my-mat-row" [style.background-color]="element.bkcolor"></mat-row>
     </mat-table>
     <mat-paginator [pageSizeOptions]="[10, 25, 100]" [pageSize]="25" class="table-pagination"></mat-paginator>
+    <div *ngIf="alarmsLoading" class="spinner-overlay">
+        <mat-spinner style="margin: auto" diameter="40"  class="spinner"></mat-spinner>
+    </div>
+    <mat-date-range-input [formGroup]="dateRange" [rangePicker]="picker">
+        <input matStartDate formControlName="startDate">
+        <input matEndDate formControlName="endDate">
+    </mat-date-range-input>
+    <mat-date-range-picker #picker>
+        <mat-date-range-picker-actions>
+            <button mat-button matDateRangePickerCancel>{{'dlg.cancel' | translate}}</button>
+            <button mat-raised-button color="primary" matDateRangePickerApply (click)="onShowAlarmsHistory()">{{'dlg.apply' | translate}}</button>
+          </mat-date-range-picker-actions>
+    </mat-date-range-picker>   
 </div>

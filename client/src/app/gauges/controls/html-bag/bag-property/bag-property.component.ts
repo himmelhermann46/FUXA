@@ -1,6 +1,6 @@
 import { Component, Inject, AfterViewInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { Utils } from '../../../../_helpers/utils';
-import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatLegacyDialog as MatDialog, MatLegacyDialogRef as MatDialogRef, MAT_LEGACY_DIALOG_DATA as MAT_DIALOG_DATA } from '@angular/material/legacy-dialog';
 
 import { GaugeOptions, GaugeType, } from '../../../../gui-helpers/ngx-gauge/gaugeOptions';
 import { NgxGaugeComponent } from '../../../../gui-helpers/ngx-gauge/ngx-gauge.component';
@@ -124,6 +124,9 @@ export class BagPropertyComponent implements AfterViewInit {
             this.options.pointer.length = value / 100;
         } else if (opt === 'pointerStrokeWidth') {
             this.options.pointer.strokeWidth = value / 1000;
+        }
+        if (opt === 'minValue') {
+            this.onChangeValue(value);
         }
         this.setGaugeOptions();
     }

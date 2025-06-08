@@ -1,3 +1,5 @@
+# DS_Store
+*.DS_Store
 # Logs
 logs
 *.log
@@ -78,6 +80,8 @@ _pkg/
 _images/
 
 _reports/
+
+_certificates/
 
 test/
 

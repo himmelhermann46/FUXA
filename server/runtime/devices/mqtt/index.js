@@ -3,10 +3,13 @@
  */
 'use strict';
 const mqtt = require('mqtt');
-var utils = require('../../utils');
+const utils = require('../../utils');
 const deviceUtils = require('../device-utils');
+const path = require('path');
+const fs = require('fs');
 
-function MQTTclient(_data, _logger, _events) {
+function MQTTclient(_data, _logger, _events, _runtime) {
+    var runtime = _runtime;
     var data = _data;                   // Current data
     var logger = _logger;               // Logger var working = false;
     var working = false;                // Working flag to manage overloading polling and connection
@@ -23,6 +26,8 @@ function MQTTclient(_data, _logger, _events) {
     var topicsMap = {};                 // Map the topic subscribed, to check by on.message
     var memoryTagToPublish = new Map(); // Map tag to publish, content in topics as 'tag'
     var refTagToTopics = {};            // Map of Tag to Topic (with ref to other device tag)
+    
+    const certificatesDir = _data.certificatesDir;
 
     /**
      * Tag with options 'pubs' for publish and 'subs' for subscription
@@ -48,6 +53,15 @@ function MQTTclient(_data, _logger, _events) {
                                 options.clientId = property.clientId;
                                 options.username = property.uid;
                                 options.password = property.pwd;
+                                if (property.cert) {
+                                    options.cert = fs.readFileSync(path.join(certificatesDir, property.cert));
+                                }
+                                if (property.pkey) {
+                                    options.key = fs.readFileSync(path.join(certificatesDir, property.pkey));
+                                }
+                                if (property.caCert) {
+                                    options.ca = fs.readFileSync(path.join(certificatesDir, property.caCert));
+                                }                                
                             }
                         }
                         client = mqtt.connect(options.url, options);
@@ -133,16 +147,16 @@ function MQTTclient(_data, _logger, _events) {
      * Take the current Topics value (only changed), emit Topics value
      * Save DAQ value
      */
-    this.polling = function () {
+    this.polling = async function () {
         if (_checkWorking(true)) {
             if (client) {
                 try {
-                    var varsValueChanged = _checkVarsChanged();
+                    var varsValueChanged = await _checkVarsChanged();
                     lastTimestampValue = new Date().getTime();
                     _emitValues(varsValue);
 
-                    if (this.addDaq) {
-                        this.addDaq(varsValueChanged, data.name);
+                    if (this.addDaq && !utils.isEmptyObject(varsValueChanged)) {
+                        this.addDaq(varsValueChanged, data.name, data.id);
                     }
                 } catch (err) {
                     logger.error(`'${data.name}' polling error: ${err}`);
@@ -215,6 +229,14 @@ function MQTTclient(_data, _logger, _events) {
     this.addDaq = null;
 
     /**
+     * Return the timestamp of last read tag operation on polling
+     * @returns 
+     */
+     this.lastReadTimestamp = () => {
+        return lastTimestampValue;
+    }    
+
+    /**
      * Set function to ask property (security)
      */
     this.bindGetProperty = function (fnc) {
@@ -277,28 +299,31 @@ function MQTTclient(_data, _logger, _events) {
     /**
      * Set the Topic value, publish to broker (coming from frontend)
      */
-    this.setValue = function (tagid, value) {
+    this.setValue = async function (tagId, value) {
         if (client && client.connected) {
-            var tag = data.tags[tagid];
+            var tag = data.tags[tagId];
             if (tag) {
                 if (tag.options) {
                     if (tag.options.pubs) {
-                        tag.options.pubs.forEach(item => {
+                        for (const item of tag.options.pubs) {
                             if (item.type === 'value') {
-                                item.value = value;
+                                item.value = await deviceUtils.tagRawCalculator(value, tag, runtime);
                             }
-                        })
+                        }
                     } else if (tag.options.subs && tag.options.subs.indexOf(tag.memaddress) !== -1) {
-                        tag.value = value;
+                        tag.value = await deviceUtils.tagRawCalculator(value, tag, runtime);
                     }
                 }
                 if (tag.type === 'raw') {
-                    tag['value'] = value;
+                    tag['value'] = await deviceUtils.tagRawCalculator(value, tag, runtime);
                 }
                 tag.changed = true;
                 _publishValues([tag]);
+                // logger.info(`'${data.name}' setValue(${tagId}, ${value})`, true, true);
+                return true;
             }
         }
+        return false;
     }
 
     /**
@@ -313,10 +338,27 @@ function MQTTclient(_data, _logger, _events) {
      */
     this.getTagProperty = function (topic) {
         if (data.tags[topic]) {
-            let prop = { id: topic, name: data.tags[topic].name, type: data.tags[topic].type };
-            return prop;
+            return { id: topic, name: data.tags[topic].name, type: data.tags[topic].type, format: data.tags[topic].format };
         } else {
             return null;
+        }
+    }
+
+    /**
+     * Return the Daq settings of Tag
+     * @returns 
+     */
+    this.getTagDaqSettings = (tagId) => {
+        return data.tags[tagId] ? data.tags[tagId].daq : null;
+    }
+
+    /**
+     * Set Daq settings of Tag
+     * @returns 
+     */
+    this.setTagDaqSettings = (tagId, settings) => {
+        if (data.tags[tagId]) {
+            utils.mergeObjectsValues(data.tags[tagId].daq, settings);
         }
     }
 
@@ -336,17 +378,17 @@ function MQTTclient(_data, _logger, _events) {
                             if (topicsMap[topicAddr]) {
                                 for (var i = 0; i < topicsMap[topicAddr].length; i++) {
                                     var id = topicsMap[topicAddr][i].id;
-                                    var oldvalue = data.tags[id].value;
-                                    data.tags[id].value = msg.toString();
+                                    var oldvalue = data.tags[id].rawValue;
+                                    data.tags[id].rawValue = msg.toString();
                                     data.tags[id].timestamp = new Date().getTime();
-                                    data.tags[id].changed = oldvalue !== data.tags[id].value;
+                                    data.tags[id].changed = oldvalue !== data.tags[id].rawValue;
                                     if (data.tags[id].type === 'json' && data.tags[id].options && data.tags[id].options.subs && data.tags[id].memaddress) {
                                         try {
-                                            var subitems = JSON.parse(data.tags[id].value);
+                                            var subitems = JSON.parse(data.tags[id].rawValue);
                                             if (!utils.isNullOrUndefined(subitems[data.tags[id].memaddress])) {
-                                                data.tags[id].value = subitems[data.tags[id].memaddress];
+                                                data.tags[id].rawValue = subitems[data.tags[id].memaddress];
                                             } else {
-                                                data.tags[id].value = oldvalue;
+                                                data.tags[id].rawValue = oldvalue;
                                             }
                                         } catch (err) {
                                             console.error(err);
@@ -419,12 +461,15 @@ function MQTTclient(_data, _logger, _events) {
     /**
      * Return the Topics to publish that have value changed and clear value changed flag of all Topics 
      */
-     var _checkVarsChanged = () => {
+     var _checkVarsChanged = async () => {
         const timestamp = new Date().getTime();
         var result = {};
         for (var id in data.tags) {
-            if (this.addDaq && !utils.isNullOrUndefined(data.tags[id].value) && deviceUtils.tagDaqToSave(data.tags[id], timestamp)) {
-                result[id] = data.tags[id];
+            if (!utils.isNullOrUndefined(data.tags[id].rawValue)) {
+                data.tags[id].value = await deviceUtils.tagValueCompose(data.tags[id].rawValue, data.tags[id]);
+                if (this.addDaq && deviceUtils.tagDaqToSave(data.tags[id], timestamp)) {
+                    result[id] = data.tags[id];
+                }
             }
             data.tags[id].changed = false;
             varsValue[id] = data.tags[id];
@@ -495,6 +540,7 @@ function MQTTclient(_data, _logger, _events) {
     var _publishValues = function (tags) {
         Object.keys(tags).forEach(key => {
             try {
+                const topicOptions = { retain: true };
                 // publish only tags with pubs and value changed
                 if (tags[key].options && tags[key].options.pubs && tags[key].options.pubs.length) {
                     var topicTopuplish = {};
@@ -522,16 +568,16 @@ function MQTTclient(_data, _logger, _events) {
                     });
                     // payloand
                     if (tags[key].type === 'json') {
-                        client.publish(tags[key].address, JSON.stringify(topicTopuplish));
-                    } else if (topicTopuplish[0]) { // payloand with row data
-                        client.publish(tags[key].address, Object.values(topicTopuplish)[0].toString());
+                        client.publish(tags[key].address, JSON.stringify(topicTopuplish), topicOptions);
+                    } else if (topicTopuplish[0] !== undefined) { // payloand with row data
+                        client.publish(tags[key].address, Object.values(topicTopuplish)[0].toString(), topicOptions);
                     }
                 } else if (tags[key].type === 'json' && tags[key].options && tags[key].options.subs && tags[key].options.subs.length) {
                     let obj = {};
                     obj[tags[key].memaddress] = tags[key].value;
-                    client.publish(tags[key].address, JSON.stringify(obj));
-                } else if (tags[key].value) {   // whitout payload
-                    client.publish(tags[key].address, tags[key].value.toString());
+                    client.publish(tags[key].address, JSON.stringify(obj), topicOptions);
+                } else if (tags[key].value !== undefined) {   // whitout payload
+                    client.publish(tags[key].address, tags[key].value.toString(), topicOptions);
                     tags[key].value = null;
                 }
             } catch (err) {
@@ -567,7 +613,7 @@ module.exports = {
     init: function (settings) {
         // deviceCloseTimeout = settings.deviceCloseTimeout || 15000;
     },
-    create: function (data, logger, events) {
-        return new MQTTclient(data, logger, events);
+    create: function (data, logger, events, runtime) {
+        return new MQTTclient(data, logger, events, runtime);
     }
 }

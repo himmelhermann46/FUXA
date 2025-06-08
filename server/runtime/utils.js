@@ -4,6 +4,8 @@ const ip = require('ip');
 'use strict';
 var utils = module.exports = {
 
+    SMALLEST_NEGATIVE_INTEGER: -9007199254740991,
+
     domStringSplitter: function (src, tagsplitter, first) {
         var result = { before: '', tagcontent: '', after: '' };
         var tagStart = '<' + tagsplitter.toLowerCase();
@@ -104,6 +106,25 @@ var utils = module.exports = {
         return (ele === null || ele === undefined) ? true : false;
     },
 
+    JsonTryToParse(value) {
+        try {
+            if (value) {
+                return JSON.parse(value);
+            }    
+        } catch { }
+    },
+
+    mergeObjectsValues: function (obj1, obj2) {
+        if (typeof obj1 === 'object' && typeof obj2 === 'object') {
+            for (let key in obj2) {
+                if (obj1.hasOwnProperty(key)) {
+                    obj1[key] = obj2[key];
+                }
+            }
+        }    
+        return obj1;
+    },
+
     dayOfYear: function (date) {
         if (date) {
             return Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
@@ -164,11 +185,22 @@ var utils = module.exports = {
         return `${dd}/${mm}/${yyyy} ${HH}:${MM}:${SS}`;
     },
 
-    isNumber: function(n) {
-        if (!isNaN(n) && typeof n === 'number') {
+    isNumber: function(n, v = {value: null}) {
+        if (typeof n === 'number') {
+            v.value = n;
+            return true;
+        } else {
+            var num = Number(n);
+            if (isNaN(num)) {
+                return false;
+            }
+            num = parseFloat(n);
+            if (isNaN(num)) {
+                return false;
+            }
+            v.value = num;
             return true;
         }
-        return false;
     },
 
     isFloat: function (n) {
@@ -188,5 +220,65 @@ var utils = module.exports = {
             return true;
         }
         return false;
+    },
+
+    chunkArray: function (array, chunkSize) {
+        const chunks = [];
+        for (let i = 0; i < array.length; i += chunkSize) {
+          chunks.push(array.slice(i, i + chunkSize));
+        }
+        return chunks;
+    },
+
+    extractArray: function (object) {
+        let index = 0;
+        const array = [];
+        
+        while (object[index] !== undefined) {
+            array.push(object[index]);
+            index++;
+        }
+        return array;
+    },
+
+    getNetworkInterfaces: function () {
+        const interfaces = os.networkInterfaces();
+        var result = [];
+        Object.keys(interfaces).forEach((interfaceName) => {
+            interfaces[interfaceName].forEach((iface) => {
+                if (iface.interal === true) return;
+                if (iface.family !== 'IPv4') return;
+                result.push(iface.address);
+            });
+        });
+        return result;
+    },
+
+    getRetentionLimit: function(retention) {
+        var dayToAdd = 0;
+        if (retention === 'day1') {
+            dayToAdd = 1;
+        } else if (retention === 'days2') {
+            dayToAdd = 2;
+        } else if (retention === 'days3') {
+            dayToAdd = 3;
+        } else if (retention === 'days7') {
+            dayToAdd = 7;
+        } else if (retention === 'days14') {
+            dayToAdd = 14;
+        } else if (retention === 'days30') {
+            dayToAdd = 30;
+        } else if (retention === 'days90') {
+            dayToAdd = 90;
+        } else if (retention === 'year1') {
+            dayToAdd = 365;
+        } else if (retention === 'year3') {
+            dayToAdd = 365 * 3;
+        } else if (retention === 'year5') {
+            dayToAdd = 365 * 5;
+        }
+        const date = new Date();
+        date.setDate(date.getDate() - dayToAdd);
+        return date;
     }
 }

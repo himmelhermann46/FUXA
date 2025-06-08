@@ -1,6 +1,5 @@
 @import 'material-icons/iconfont/material-icons.css';
-@import "~@angular/material/prebuilt-themes/indigo-pink.css";
-@import "~ngx-toastr/toastr.css";
+@import "@angular/material/prebuilt-themes/indigo-pink.css";
 @import "~angular2-draggable/css/resizable.min.css";
 
 @font-face {
@@ -137,7 +136,13 @@ select:disabled {
 * {
     /* font-family: "Segoe UI Symbol", "Roboto-Regular", "Helvetica Neue", sans-serif; */
     text-decoration: none;
-    scrollbar-width: thin;
+    scrollbar-width: auto;
+}
+
+@-moz-document url-prefix() {
+    * {
+        scrollbar-width: thin;
+    }
 }
 
 *:focus {
@@ -295,6 +300,15 @@ app-root {
 .sidenav-toogle {
     top: 0px;
     left: 10px;
+    line-height: 46px;
+}
+
+.backdrop-white {
+    background-color: rgb(255, 255, 255);
+}
+
+.backdrop-black {
+    background-color: rgba(0, 0, 0);
 }
 
 .sidenav-menu {
@@ -406,6 +420,7 @@ app-root {
 .menu-item-content-inline {
     text-align: left;
     padding: 10px 10px 10px 10px;
+    display: flex;
 }
 
 .menu-item-content-inline .mat-icon {
@@ -552,11 +567,11 @@ app-root {
 }
 
 .my-form-field-link {
-    position:absolute; 
-    bottom: 0px; 
-    right: 0px; 
-    height: 28px; 
-    width: 28px; 
+    position:absolute;
+    bottom: 0px;
+    right: 0px;
+    height: 28px;
+    width: 28px;
     border-radius: 2px 0px 0px 2px;
     background-color: var(--formInputBackground);
     color: var(--formInputColor);
@@ -621,6 +636,7 @@ mat-toolbar-row {
 .mat-dialog-title {
     margin: 0 0 12px !important;
     width: calc(100% - 50px);
+    cursor: move;
 }
 
 .mat-raised-button {
@@ -639,6 +655,7 @@ mat-toolbar-row {
 
 .mat-tooltip {
     font-size: 14px !important;
+    white-space: pre-line;
 }
 
 .mat-button-sm {
@@ -833,9 +850,9 @@ mat-toolbar-row {
 }
 
 .dialog-title {
-    display:inline-block; 
-    cursor:move;
-    display: unset !important;
+    display: inline-block !important;
+    cursor: move;
+    width: calc(100% - 50px);
 }
 
 .dialog-close-btn {
@@ -857,12 +874,12 @@ mat-toolbar-row {
     cursor: pointer;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
     font-size: 13px;
-    padding: 5px 2px 6px 3px !important;    
+    padding: 5px 2px 6px 3px !important;
     color:gray;
 }
 
 .input-color input:focus {
-    padding: 5px 2px 6px 3px !important;    
+    padding: 5px 2px 6px 3px !important;
     /* background-color: white; */
     border: 1px solid var(--formInputBorderFocus);
 }
@@ -944,6 +961,7 @@ mat-toolbar-row {
 /* Element side property */
 .element-property {
     display: block;
+    width: calc(100% - 10px);
 }
 
 .element-property-title {
@@ -974,13 +992,42 @@ mat-toolbar-row {
     margin-bottom: 5px;
 }
 
+.gauge-property-button {
+    background-color: dimgrey;
+    color:white;
+}
+
+/* standard */
+.inbk {
+    display: inline-block;
+}
+
 .message-error {
     color:#ff5151;
 }
 
-/* standard */
+.tohide {
+    display: none !important;
+}
+
 .block {
     display: block;
+}
+
+.lbk {
+    display: inline-block;
+}
+
+.force-lbk {
+    display: inline-block !important;
+}
+
+.table {
+    display: table;
+}
+
+.mt5 {
+    margin-top: 5px;
 }
 
 .mt10 {
@@ -995,12 +1042,40 @@ mat-toolbar-row {
     margin-top: 20px;
 }
 
+.mt25 {
+    margin-top: 25px;
+}
+
 .ml10 {
     margin-left: 10px;
 }
 
+.ml15 {
+    margin-left: 15px;
+}
+
+.mr5 {
+    margin-right: 5px;
+}
+
 .mr10 {
     margin-right: 10px;
+}
+
+.mr15 {
+    margin-right: 15px;
+}
+
+.ml5 {
+    margin-left: 5px;
+}
+
+.ml10 {
+    margin-left: 10px;
+}
+
+.ml12 {
+    margin-left: 12px;
 }
 
 .ml20 {
@@ -1019,6 +1094,10 @@ mat-toolbar-row {
     margin-right: 5px;
 }
 
+.mb5 {
+    margin-bottom: 5px;
+}
+
 .mb10 {
     margin-bottom: 10px;
 }
@@ -1029,4 +1108,58 @@ mat-toolbar-row {
 
 .mb20 {
     margin-bottom: 20px;
+}
+
+.mb25 {
+    margin-bottom: 25px;
+}
+
+.ftl {
+    float: left;
+}
+
+.ftr {
+    float: right;
+}
+
+.w100 {
+    width: 100%;
+}
+
+.flex {
+    display: flex;
+}
+
+.container-split-ver {
+    display: flex;
+}
+
+.font-edit {
+    font-size: 14px;
+}
+
+.container-split-ver > div {
+    flex: 1;
+}
+
+.pointer {
+    cursor: pointer;
+}
+
+.pointer-move {
+    cursor: move;
+}
+
+.tac {
+    text-align: center;
+}
+
+.form-input-error {
+    display: block;
+    color: #ff9122;
+    font-size: 12px !important;
+    font-weight: bold;
+}
+.wp100 {
+    width: 100%;
 }

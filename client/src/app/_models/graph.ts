@@ -44,7 +44,7 @@ export class GraphBarFunction {
 }
 
 export class GraphBarDateFunction extends GraphBarFunction {
-    type: GraphBarDateFunctionType;
+   declare type: GraphBarDateFunctionType;
 
     constructor(_type?: GraphBarDateFunctionType) {
         super();
@@ -54,6 +54,10 @@ export class GraphBarDateFunction extends GraphBarFunction {
             this.type = <GraphBarDateFunctionType>Object.keys(GraphBarDateFunctionType).find(key => GraphBarDateFunctionType[key] === GraphBarDateFunctionType.sumHourIntegral);
         }
     }
+}
+
+export class GraphPieProperty {
+
 }
 
 export class GraphSource {

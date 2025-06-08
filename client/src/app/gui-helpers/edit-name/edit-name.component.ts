@@ -1,5 +1,5 @@
 import { Component, Inject } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatLegacyDialogRef as MatDialogRef, MAT_LEGACY_DIALOG_DATA as MAT_DIALOG_DATA } from '@angular/material/legacy-dialog';
 
 @Component({
     selector: 'app-edit-name',
@@ -9,7 +9,7 @@ import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 export class EditNameComponent {
     error = '';
     constructor(public dialogRef: MatDialogRef<EditNameComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: any) { }
+        @Inject(MAT_DIALOG_DATA) public data: EditNameData) { }
 
     onNoClick(): void {
         this.dialogRef.close();
@@ -40,4 +40,13 @@ export class EditNameComponent {
         }
         this.error = '';
     }
+}
+
+export interface EditNameData {
+    name: string;
+    exist?: string[];
+    label?: string;
+    title?: string;
+    error?: string;
+    validator?: any;
 }

@@ -1,4 +1,5 @@
-import { Tag } from './device';
+import { GridType } from 'angular-gridster2';
+import { Device, DeviceType, Tag } from './device';
 
 export class Hmi {
     /** Layout for navigation menu, header bar, ...  */
@@ -25,8 +26,8 @@ export class View {
 }
 
 export enum ViewType {
-    svg = 'editor.view-svg',
-    cards ='editor.view-cards'
+    svg = 'svg',
+    cards ='cards'
 }
 
 export class LayoutSettings {
@@ -50,6 +51,10 @@ export class LayoutSettings {
     theme = '';
     /** Show login by start */
     loginonstart?: boolean = false;
+    /** Overlay color for login modal */
+    loginoverlaycolor?: LoginOverlayColorType = LoginOverlayColorType.none;
+    /** Show connection error toast */
+    show_connection_error? = true;
 }
 
 export class NavigationSettings {
@@ -69,6 +74,12 @@ export class NavigationSettings {
         this.mode = Object.keys(NaviModeType).find(key => NaviModeType[key] === NaviModeType.over) as NaviModeType;
         this.type = Object.keys(NaviItemType).find(key => NaviItemType[key] === NaviItemType.block) as NaviItemType;
     }
+}
+
+export enum LoginOverlayColorType {
+    none = 'none',
+    black = 'black',
+    white = 'white',
 }
 
 export enum NaviModeType {
@@ -100,7 +111,33 @@ export class HeaderSettings {
     infos: NotificationModeType;
     bkcolor = '#ffffff';
     fgcolor = '#000000';
+    fontFamily: string;
+    fontSize = 13;
+    items: HeaderItem[];
+    itemsAnchor: AnchorType = 'left';
+    loginInfo: LoginInfoType;
+    dateTimeDisplay: string;
 }
+
+export interface HeaderItem {
+    id: string;
+    type: HeaderItemType;
+    icon: string;
+    image: string;
+    bkcolor: string;
+    fgcolor: string;
+    marginLeft: number;
+    marginRight: number;
+    property: GaugeProperty;
+    status: GaugeStatus;
+    element: HTMLElement;
+}
+
+export type LoginInfoType = 'nothing' | 'username' | 'fullname' | 'both';
+
+export type HeaderItemType = 'button' | 'label' | 'image';
+
+export type AnchorType = 'left' | 'center' | 'right';
 
 export enum NotificationModeType {
     hide = 'item.notifymode-hide',
@@ -117,6 +154,8 @@ export enum ZoomModeType {
 export enum InputModeType {
     false = 'item.inputmode-disabled',
     true = 'item.inputmode-enabled',
+    keyboard = 'item.inputmode-keyboard',
+    keyboardFullScreen = 'item.inputmode-keyboard-full-screen',
 }
 
 export enum HeaderBarModeType {
@@ -129,16 +168,19 @@ export class DocProfile {
     height = 768;
     bkcolor = '#ffffffff';
     margin = 10;
+    align = DocAlignType.topCenter;
+    gridType: GridType = GridType.Fixed;
 }
 
-export class MyItem {
-
+export enum DocAlignType {
+    topCenter = 'topCenter',
+    middleCenter ='middleCenter'
 }
 
 export class GaugeSettings {
     name = '';
     property: any = null;   // set to GaugeProperty after upgrate
-    label = '';     // Gauge type label
+    label = '';             // Gauge type label
     constructor(public id: string, public type: string) {
     }
 }
@@ -161,7 +203,30 @@ export interface InputOptionsProperty {
     numeric?: boolean;
     min?: number;
     max?: number;
+    type?: InputOptionType;
+    timeformat?: InputTimeFormatType;
+    convertion?: InputConvertionType;
 }
+
+export enum InputOptionType {
+    number = 'number',
+    text = 'text',
+    date = 'date',
+    time = 'time',
+    datetime = 'datetime'
+}
+
+export enum InputTimeFormatType {
+    normal = 'normal',
+    seconds = 'seconds',
+    milliseconds = 'milliseconds',
+}
+
+export enum InputConvertionType {
+    milliseconds = 'milliseconds',
+    string = 'string',
+}
+
 export interface IPropertyVariable {
     /** Tag id */
     variableId: string;
@@ -187,7 +252,9 @@ export enum GaugeActionsType {
     clockwise = 'shapes.action-clockwise',
     anticlockwise = 'shapes.action-anticlockwise',
     downup = 'shapes.action-downup',
-    rotate = 'shapes.action-rotate'
+    rotate = 'shapes.action-rotate',
+    move = 'shapes.action-move',
+    monitor = 'shapes.action-monitor',
 }
 
 export class GaugeAction {
@@ -209,6 +276,13 @@ export class GaugeActionBlink {
 export class GaugeActionRotate {
     minAngle = 0;
     maxAngle = 90;
+    delay = 0;
+}
+
+export class GaugeActionMove {
+    toX = 0;
+    toY = 0;
+    duration = 100;
 }
 
 export class GaugePropertyColor {
@@ -237,6 +311,9 @@ export enum GaugeEventType {
     click = 'shapes.event-click',
     mousedown = 'shapes.event-mousedown',
     mouseup = 'shapes.event-mouseup',
+    enter = 'shapes.event-enter',
+    select = 'shapes.event-select',
+    onLoad = 'shapes.event-onLoad',
 }
 
 export enum GaugeEventActionType {
@@ -250,6 +327,8 @@ export enum GaugeEventActionType {
     onSetInput = 'shapes.event-onsetinput',
     onclose = 'shapes.event-onclose',
     onRunScript = 'shapes.event-onrunscript',
+    onViewToPanel = 'shapes.event-onViewToPanel',
+    onMonitor = 'shapes.event-onmonitor',
 }
 
 export enum GaugeEventSetValueType {
@@ -272,6 +351,7 @@ export interface GaugeChartProperty {
     id: string;
     type: string;
     options: any;
+    events: GaugeEvent[];
 }
 
 export interface GaugeGraphProperty {
@@ -282,12 +362,26 @@ export interface GaugeGraphProperty {
 
 export interface GaugeIframeProperty {
     address: string;
+    variableId: string;
+}
+
+export interface GaugePanelProperty {
+    viewName: string;
+    variableId: string;
+    scaleMode: PropertyScaleModeType;
+}
+
+export enum PropertyScaleModeType {
+    none = 'none',
+    contain = 'contain',
+    stretch = 'stretch'
 }
 
 export interface GaugeTableProperty {
     id: string;
     type: TableType;
     options: TableOptions;
+    events: GaugeEvent[];
 }
 
 export enum TableType {
@@ -305,6 +399,7 @@ export interface TableOptions {
     daterange: {
         show: boolean;
     };
+    realtime?: boolean;
     lastRange?: TableRangeType;
     gridColor?: string;
     header?: {
@@ -317,6 +412,11 @@ export interface TableOptions {
     row?: {
         height: number;
         fontSize?: number;
+        color?: string;
+        background?: string;
+    };
+    selection?: {
+        fontBold?: boolean;
         color?: string;
         background?: string;
     };
@@ -380,8 +480,15 @@ export class Variable {
     source: string;
     value: string;
     error: number;
-    constructor(id: string, source: string, name: string) {
-        this.id = id; this.name = name; this.source = source;
+    timestamp: number;
+    device?: Device;
+    constructor(id: string, name: string, device?: Device) {
+        this.id = id;
+        this.name = name;
+        this.device = device;
+        if (device?.type === DeviceType.internal) {
+            this.value = '0';
+        }
     }
 }
 
@@ -391,7 +498,6 @@ export class VariableRange {
 }
 
 export class Alarm extends Tag {
-    id: string;
     group: string;
     device: string;
 }
@@ -450,11 +556,11 @@ export class Size {
     }
 }
 
-interface DictionaryGaugeSettings {
+export interface DictionaryGaugeSettings {
     [x: string]: GaugeSettings;
 }
 
-interface DictionaryVariables {
+export interface DictionaryVariables {
     [id: string]: Variable;
 }
 
@@ -475,6 +581,8 @@ export class CardWidget {
     data: string;
     type: string;
     zoom = 1;
+    scaleMode: PropertyScaleModeType;
+
     constructor(type: string, data: string) {
         this.type = type;
         this.data = data;
@@ -482,10 +590,10 @@ export class CardWidget {
 }
 
 export enum CardWidgetType {
-    view = 'card.widget-view',
-    alarms = 'card.widget-alarms',
-    iframe = 'card.widget-iframe',
-    table = 'card.widget-table',
+    view = 'view',
+    alarms = 'alarms',
+    iframe = 'iframe',
+    table = 'table',
 }
 
 export enum LinkType {

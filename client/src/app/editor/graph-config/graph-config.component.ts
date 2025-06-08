@@ -1,6 +1,6 @@
 /* eslint-disable @angular-eslint/component-class-suffix */
 import { Component, OnInit, Inject } from '@angular/core';
-import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatLegacyDialog as MatDialog, MatLegacyDialogRef as MatDialogRef, MAT_LEGACY_DIALOG_DATA as MAT_DIALOG_DATA } from '@angular/material/legacy-dialog';
 
 import { TranslateService } from '@ngx-translate/core';
 import { ProjectService } from '../../_services/project.service';
@@ -10,7 +10,7 @@ import { Device, DevicesUtils, Tag } from '../../_models/device';
 import { Graph, GraphSource, GraphType, GraphBarProperty, GraphBarXType, GraphBarDateFunctionType, GraphBarFunction, GraphBarDateFunction } from '../../_models/graph';
 import { EditNameComponent } from '../../gui-helpers/edit-name/edit-name.component';
 import { ConfirmDialogComponent } from '../../gui-helpers/confirm-dialog/confirm-dialog.component';
-import { DeviceTagDialog } from '../../device/device.component';
+import { DeviceTagSelectionComponent, DeviceTagSelectionData } from '../../device/device-tag-selection/device-tag-selection.component';
 
 @Component({
     selector: 'app-graph-config',
@@ -20,7 +20,7 @@ import { DeviceTagDialog } from '../../device/device.component';
 export class GraphConfigComponent implements OnInit {
 
     selectedGraph = new Graph(GraphType.bar);
-    data = { graphs: [], devices: [] };
+    data = <IDataGraphConfig>{ graphs: [], devices: [] };
     lineColor = Utils.lineColor;
 
     barXType = GraphBarXType;
@@ -63,7 +63,7 @@ export class GraphConfigComponent implements OnInit {
 
     onOkClick(): void {
         this.projectService.setGraphs(this.data.graphs);
-        this.dialogRef.close(this.data.graphs);
+        this.dialogRef.close(<IDataGraphResult>{ graphs: this.data.graphs, selected: this.selectedGraph });
     }
 
     onAddNewCategory() {
@@ -100,9 +100,13 @@ export class GraphConfigComponent implements OnInit {
     }
 
     onAddGraphSource(graph: Graph) {
-        let dialogRef = this.dialog.open(DeviceTagDialog, {
+        let dialogRef = this.dialog.open(DeviceTagSelectionComponent, {
+            disableClose: true,
             position: { top: '60px' },
-            data: { variableId: null, devices: this.data.devices, multiSelection: false }
+            data: <DeviceTagSelectionData> {
+                variableId: null,
+                multiSelection: false
+            }
         });
 
         dialogRef.afterClosed().subscribe((result) => {
@@ -269,4 +273,14 @@ export class DialogGraphSource {
     onOkClick(): void {
         this.dialogRef.close(this.data);
     }
+}
+
+interface IDataGraphConfig {
+    graphs: Graph[];
+    devices: Device[];
+}
+
+export interface IDataGraphResult {
+    graphs: Graph[];
+    selected: Graph;
 }

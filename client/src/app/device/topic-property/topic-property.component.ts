@@ -1,17 +1,17 @@
 import { Component, OnInit, OnDestroy, Inject, ViewChild } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { MatTabGroup, MatTab } from '@angular/material/tabs';
+import { MatLegacyDialogRef as MatDialogRef, MAT_LEGACY_DIALOG_DATA as MAT_DIALOG_DATA } from '@angular/material/legacy-dialog';
+import { MatLegacyTabGroup as MatTabGroup, MatLegacyTab as MatTab } from '@angular/material/legacy-tabs';
 import { Subscription } from 'rxjs';
 
 import { HmiService } from '../../_services/hmi.service';
 import { TranslateService } from '@ngx-translate/core';
 import { Utils } from '../../_helpers/utils';
-import { Tag, TAG_PREFIX } from '../../_models/device';
+import { Device, Tag, TAG_PREFIX } from '../../_models/device';
 
 @Component({
     selector: 'app-topic-property',
     templateUrl: './topic-property.component.html',
-    styleUrls: ['./topic-property.component.css']
+    styleUrls: ['./topic-property.component.scss']
 })
 export class TopicPropertyComponent implements OnInit, OnDestroy {
 
@@ -49,7 +49,7 @@ export class TopicPropertyComponent implements OnInit, OnDestroy {
         private hmiService: HmiService,
         private translateService: TranslateService,
         public dialogRef: MatDialogRef<TopicPropertyComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: any) {
+        @Inject(MAT_DIALOG_DATA) public data: TopicPropertyData) {
     }
 
     ngOnInit() {
@@ -145,23 +145,25 @@ export class TopicPropertyComponent implements OnInit, OnDestroy {
     }
 
     selectTopic(topic) {
-        this.selectedTopic = topic;
+        this.selectedTopic = JSON.parse(JSON.stringify(topic));
         this.loadSelectedSubTopic();
     }
 
     private loadSelectedSubTopic() {
         this.topicContent =  [];
-        if (this.topicSelectedSubType === 'json') {
-            let obj = JSON.parse(this.selectedTopic.value.content);
-            Object.keys(obj).forEach(key => {
-                let checked = (this.selectedTopic.subs) ? false : true;
-                if (this.selectedTopic.subs && this.selectedTopic.subs.indexOf(key) !== -1) {
-                    checked = true;
-                }
-                this.topicContent.push({ key: key, value: obj[key], checked: checked, type: this.topicSelectedSubType });
-            });
-        } else if (this.selectedTopic.value && this.selectedTopic.value.content) {
-            this.topicContent =  [{ name: this.selectedTopic.name, key: this.selectedTopic.key, value: this.selectedTopic.value.content, checked: true, type: this.topicSelectedSubType }];
+        if (this.selectedTopic.value) {
+            if (this.topicSelectedSubType === 'json') {
+                let obj = JSON.parse(this.selectedTopic.value?.content);
+                Object.keys(obj).forEach(key => {
+                    let checked = (this.selectedTopic.subs) ? false : true;
+                    if (this.selectedTopic.subs && this.selectedTopic.subs.indexOf(key) !== -1) {
+                        checked = true;
+                    }
+                    this.topicContent.push({ key: key, value: obj[key], checked: checked, type: this.topicSelectedSubType });
+                });
+            } else if (this.selectedTopic.value?.content) {
+                this.topicContent =  [{ name: this.selectedTopic.name, key: this.selectedTopic.key, value: this.selectedTopic.value?.content, checked: true, type: this.topicSelectedSubType }];
+            }
         }
     }
 
@@ -190,6 +192,23 @@ export class TopicPropertyComponent implements OnInit, OnDestroy {
         return false;
     }
 
+    onAddSubscribeAttribute() {
+        if (this.selectedTopic.key && !this.topicContent.length || this.topicSelectedSubType === 'json') {
+            this.topicContent.push({
+                name: this.selectedTopic.name,
+                key: this.selectedTopic.key,
+                value: this.selectedTopic.value?.content,
+                checked: true, type: this.topicSelectedSubType
+            });
+        }
+    }
+
+    onSelectedChanged() {
+        if (this.topicSelectedSubType === 'raw' && this.topicContent.length) {
+            this.topicContent[0].key = this.selectedTopic.key;
+        }
+    }
+
     onAddToSubscribe() {
         if (this.topicContent && this.topicContent.length && this.invokeSubscribe) {
             let topicsToAdd = [];
@@ -215,6 +234,14 @@ export class TopicPropertyComponent implements OnInit, OnDestroy {
                 }
             }
             this.invokeSubscribe(this.data.topic, topicsToAdd);
+        } else if (this.selectedTopic.key?.length) {
+            let topic = new Tag(Utils.getGUID(TAG_PREFIX));
+            topic.name = this.selectedTopic.key;
+            topic.type = 'raw';
+            topic.address = this.selectedTopic.key;
+            topic.memaddress = this.selectedTopic.key;
+            topic.options = { subs: this.selectedTopic.key };
+            this.invokeSubscribe(this.data.topic, [topic]);
         }
     }
     //#endregion
@@ -349,4 +376,10 @@ export class MqttPayloadItem {
     key = '';
     value = '';
     name;
+}
+
+export interface TopicPropertyData {
+    device: Device;
+    devices: Device[];
+    topic: Tag;
 }

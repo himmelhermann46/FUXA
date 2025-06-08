@@ -16,11 +16,20 @@
     top: 0px;
     right: 0px;
     height: 22px;
-    width: 100%;
+    width: 22px;
     color: rgba(0, 0, 0, 0.7);
     background-color: transparent;
     font-size: 12px;
     cursor: move !important;
+}
+
+.card-move-area {
+    z-index: 999;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    height: 22px;
 }
 
 .card-close i {
@@ -77,6 +86,10 @@
 }
 
 /* Modal Content/Box */
+::ng-deep .fuxa-dialog-property .mat-dialog-container {
+    padding: 0;
+}
+
 .dialog-modal-content {
     border: 1px solid #888;
     box-shadow: 0 0 12px #000000 !important;
@@ -104,7 +117,7 @@
 
 /* input */
 .dialog-input {
-    z-index: 1; /* Sit on top */
+    z-index: 9999; /* Sit on top */
     box-shadow: 1px 2px 5px -1px #888;
     position: absolute;
     padding: 5px;

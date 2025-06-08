@@ -53,6 +53,12 @@ if (parsedArgs.help) {
 // Define directory
 var rootDir = __dirname;
 var workDir = path.resolve(process.cwd(), '_appdata');
+
+if(process.env.userDir){
+    rootDir = process.env.userDir;
+    workDir = path.resolve(process.env.userDir, '_appdata');
+}
+
 if (parsedArgs.userDir) {
     rootDir = parsedArgs.userDir;
     workDir = path.resolve(parsedArgs.userDir, '_appdata');
@@ -66,7 +72,7 @@ if (!fs.existsSync(workDir)) {
     fs.mkdirSync(workDir);
 }
 
-// Read app settings 
+// Read app settings
 var appSettingsFile = path.join(workDir, 'settings.js');
 if (fs.existsSync(appSettingsFile)) {
     // _appdata/settings.js exists
@@ -123,8 +129,16 @@ try {
         if (mysettings.uiPort) {
             settings.uiPort = mysettings.uiPort;
         }
-        if (mysettings.secureEnabled) {
+        if (!utils.isNullOrUndefined(mysettings.secureEnabled)) {
             settings.secureEnabled = mysettings.secureEnabled;
+            if (!settings.tokenExpiresIn) {
+                settings.tokenExpiresIn = '1h';
+            }
+        }
+        if (!utils.isNullOrUndefined(mysettings.secureOnlyEditor)) {
+            settings.secureOnlyEditor = mysettings.secureOnlyEditor;
+        }
+        if (mysettings.tokenExpiresIn) {
             settings.tokenExpiresIn = mysettings.tokenExpiresIn;
         }
         if (mysettings.smtp) {
@@ -133,6 +147,15 @@ try {
         if (mysettings.daqstore) {
             settings.daqstore = mysettings.daqstore;
         }
+        if (mysettings.alarms) {
+            settings.alarms = mysettings.alarms;
+        }
+        if (!utils.isNullOrUndefined(mysettings.broadcastAll)) {
+            settings.broadcastAll = mysettings.broadcastAll;
+        }
+        if (!utils.isNullOrUndefined(mysettings.logFull)) {
+            settings.logFull = mysettings.logFull;
+        }
     }
 } catch (err) {
     logger.error('Error loading user settings file: ' + userSettingsFile)
@@ -140,13 +163,13 @@ try {
 
 // Check logger
 if (!settings.logDir) {
-    settings.logDir = path.resolve(rootDir, '_logs'); 
+    settings.logDir = path.resolve(rootDir, '_logs');
 }
 if (!fs.existsSync(settings.logDir)) {
     fs.mkdirSync(settings.logDir);
 }
 
-logger.init(settings.logDir);
+logger.init(settings);
 const version = FUXA.version();
 if (version.indexOf('beta') > 0) {
     logger.warn('FUXA V.' + version);
@@ -203,7 +226,7 @@ if (parsedArgs.port !== undefined){
 }
 settings.uiHost = settings.uiHost || "0.0.0.0";
 
-// Wait ending initialization 
+// Wait ending initialization
 events.once('init-runtime-ok', function () {
     logger.info('FUXA init in  ' + utils.endTime(startTime) + 'ms.');
     startFuxa();
@@ -246,6 +269,7 @@ var allowCrossDomain = function(req, res, next) {
 app.use(allowCrossDomain);
 app.use('/', express.static(settings.httpStatic));
 app.use('/home', express.static(settings.httpStatic));
+app.use('/home/:viewName', express.static(settings.httpStatic));
 app.use('/lab', express.static(settings.httpStatic));
 app.use('/editor', express.static(settings.httpStatic));
 app.use('/device', express.static(settings.httpStatic));
@@ -256,7 +280,10 @@ app.use('/' + settings.httpUploadFileStatic, express.static(settings.uploadFileD
 app.use('/_images', express.static(settings.imagesFileDir));
 
 var accessLogStream = fs.createWriteStream(settings.logDir + '/api.log', {flags: 'a'});
-app.use(morgan('combined', { stream: accessLogStream }));
+app.use(morgan('combined', {
+    stream: accessLogStream,
+    skip: function (req, res) { return res.statusCode < 400 }
+}));
 
 app.use(morgan('dev', {
     skip: function (req, res) {
@@ -327,10 +354,12 @@ function startFuxa() {
         }
     }).catch(function (err) {
         logger.error('server.failed-to-start');
-        if (err.stack) {
-            logger.error(err.stack);
-        } else {
-            logger.error(err);
+        if (err) {
+            if (err.stack) {
+                logger.error(err.stack);
+            } else {
+                logger.error(err);
+            }
         }
     });
 }
@@ -346,7 +375,6 @@ process.on('uncaughtException', function (err) {
     } else {
         logger.error(err);
     }
-    process.exit(1);
 });
 
 process.on('SIGINT', function () {

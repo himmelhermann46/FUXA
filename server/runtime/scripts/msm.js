@@ -5,10 +5,12 @@
 
 'use strict';
 const path = require('path');
+const utils = require("../utils");
 
 var Module = module.constructor;
 
 // const eventsIncludes = 'var events = require("../events").create();';
+const requireInclude = `const path = require('path');`;
 const eventsIncludes = 'var events; var id; var console = { log: function (msg) { if (events) events.emit(\'script-console\', { msg: msg, type: \'log\', id: id });}};';
 // const eventsIncludes = 'var events = require("../events").create();';// var console = { log: function (msg) { if (events) events.emit(\'script-console\', { msg: msg, type: \'log\' });}}';
 const initEvents = { name: 'init', code: 'events = _events; id = _id', parameters: [{ name: '_events' }, { name: '_id' }] };
@@ -46,19 +48,25 @@ function MyScriptsModule(_events, _logger) {
 
         var result = _scriptsToModule(tempScripts, eventsIncludes);
         if (result.module) {
-            var paramsValue = _script.parameters.map(p => p.value);
+            var paramsValue = _script.parameters.map(p => utils.isNullOrUndefined(p.value) ? p : p.value);
             result.module[initEvents.name](events, _script.outputId);
-            result.module[_script.name](...paramsValue);
+            return result.module[_script.name](...paramsValue);
         }
+        throw new Error(result);
     }
 
     this.runScript = function (_script) {
-        if (scriptsModule) {
-            var paramsValue = _script.parameters.map(p => p.value);
+        if (scriptsModule) {            
+            var paramsValue = _script.parameters.map(p => utils.isNullOrUndefined(p.value) ? p : p.value);
             if (!_script.name) {
                 _script = Object.values(scriptsMap).find(s => s.id === _script.id);
             }
-            scriptsModule[_script.name](...paramsValue);
+            try {
+                return scriptsModule[_script.name](...paramsValue);
+            } catch (err) {
+                console.error(err);
+                return err;
+            }
         }
     }
 
@@ -67,8 +75,17 @@ function MyScriptsModule(_events, _logger) {
             if (!_script.name) {
                 _script = Object.values(scriptsMap).find(s => s.id === _script.id);
             }
-            scriptsModule[_script.name]();
+            try {
+                return scriptsModule[_script.name]();
+            } catch (err) {
+                console.error(err);
+                return err;
+            }
         }
+    }
+
+    this.runSysFunction = function (functionName, params) {
+        return global[functionName](...params);
     }
 
     this.getScript = function (_script) {
@@ -88,7 +105,7 @@ function MyScriptsModule(_events, _logger) {
                             if (params.length) params += ',';
                             params += `${script.parameters[i].name}`;
                         }
-                        functions += `function ${script.name} (${params}) { ${script.code} } `;
+                        functions += `async function ${script.name} (${params}) { try { ${script.code} } catch (fuxaError) { console.log(fuxaError); return JSON.stringify(fuxaError); } }`;
                         toexport += `${script.name}: ${script.name}, `;
                         result.scriptsMap[script.name] = script;
                     } else {
@@ -104,11 +121,12 @@ function MyScriptsModule(_events, _logger) {
             if (_includes) {
                 code = `${_includes}`;
             }
-            var code = `${code} ${functions} module.exports = { ${toexport} };`;
+            var code = `${requireInclude} ${code} ${functions} module.exports = { ${toexport} };`;
             var filename = path.resolve(__dirname, 'msm-scripts.js');
             result.module = _requireFromString(code, filename);
         } catch(ex) {
             logger.error(`load.script error: ${(ex.stack) ? ex.stack : ex}`);
+            return ex;
         }
         return result;
     }

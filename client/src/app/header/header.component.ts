@@ -3,7 +3,7 @@
 import { Component, Inject, ViewChild, AfterViewInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatLegacyDialog as MatDialog, MatLegacyDialogRef as MatDialogRef, MAT_LEGACY_DIALOG_DATA as MAT_DIALOG_DATA } from '@angular/material/legacy-dialog';
 
 import { environment } from '../../environments/environment';
 
@@ -169,8 +169,6 @@ export class HeaderComponent implements AfterViewInit, OnDestroy {
      * @param event file resource
      */
     onFileChangeListener(event) {
-        let text = [];
-        let files = event.srcElement.files;
         let input = event.target;
         let reader = new FileReader();
         reader.onload = (data) => {
@@ -192,9 +190,13 @@ export class HeaderComponent implements AfterViewInit, OnDestroy {
      */
     onSaveProject() {
         try {
-            this.projectService.saveProject(SaveMode.Save);
+            if (this.savededitor) {
+                this.projectService.save();
+            } else {
+                this.projectService.saveProject(SaveMode.Save);
+            }
         } catch (e) {
-
+            console.error(e);
         }
     }
 

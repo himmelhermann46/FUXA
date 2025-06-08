@@ -72,27 +72,34 @@
         <!-- Value Column -->
         <ng-container matColumnDef="value">
             <mat-header-cell *matHeaderCellDef mat-sort-header> {{'device.list-value' | translate}} </mat-header-cell>
-            <mat-cell *matCellDef="let element"> {{element.value}} </mat-cell>
+            <mat-cell *matCellDef="let element" matTooltip="{{element.value}}"> {{element.value}} </mat-cell>
         </ng-container>
 
+        <!-- Timestamp Column -->
+        <ng-container matColumnDef="timestamp">
+            <mat-header-cell *matHeaderCellDef mat-sort-header> {{'device.list-timestamp' | translate}} </mat-header-cell>
+            <mat-cell *matCellDef="let element"> {{element.timestamp | date : 'dd-MM-yyyy HH:mm:ss' }} </mat-cell>
+        </ng-container>
+        <ng-container matColumnDef="description">
+            <mat-header-cell *matHeaderCellDef mat-sort-header> {{'device.list-description' | translate}} </mat-header-cell>
+            <mat-cell *matCellDef="let element" matTooltip="{{element.description}}">{{ element.description }}</mat-cell>
+        </ng-container>
+        
         <!-- Logger Column -->
         <ng-container matColumnDef="logger">
             <mat-header-cell *matHeaderCellDef mat-sort-header> </mat-header-cell>
             <mat-cell *matCellDef="let element">
-                <div *ngIf="element.daq && element.daq.enabled">
-                    <mat-icon>storage</mat-icon>
-                    <span *ngIf="element.daq.interval" style="display: inline-block;vertical-align: super;">
-                        {{element.daq.interval}} s
-                    </span>
+                <div *ngIf="element.daq">
+                    <ng-container *ngIf="element.daq.restored">
+                        <mat-icon>settings_backup_restore</mat-icon>
+                    </ng-container>
+                    <ng-container *ngIf="element.daq.enabled">
+                        <mat-icon>storage</mat-icon>
+                        <span *ngIf="element.daq.interval" style="display: inline-block;vertical-align: super;">
+                            {{element.daq.interval}} s
+                        </span>    
+                    </ng-container>
                 </div>
-            </mat-cell>
-        </ng-container>
-
-        <!-- Graph Column -->
-        <ng-container matColumnDef="graph">
-            <mat-header-cell *matHeaderCellDef mat-sort-header> </mat-header-cell>
-            <mat-cell *matCellDef="let element">
-                <mat-icon>multiline_chart</mat-icon>
             </mat-cell>
         </ng-container>
 
@@ -110,13 +117,23 @@
         <ng-container matColumnDef="options">
             <mat-header-cell *matHeaderCellDef></mat-header-cell>
             <mat-cell *matCellDef="let element">
-                <!-- <button mat-icon-button [matMenuTriggerFor]="optionsgMenu" (click)="$event.stopPropagation();editOptions(element)" class="options" -->
-                <button *ngIf="!readonly" mat-icon-button (click)="$event.stopPropagation();onEditOptions(element)" class="options" matTooltip="{{'device.list-options' | translate}}">
+                <button mat-icon-button 
+                        [matMenuTriggerFor]="options">
                     <mat-icon>more_vert</mat-icon>
                 </button>
-                <!-- <mat-menu #optionsgMenu [overlapTrigger]="false">
-                    <button mat-menu-item (click)="editOptions(element)" style="font-size: 14px;">{{'device.list-options' | translate}}</button>
-                </mat-menu>-->
+                <mat-menu #options="matMenu" xPosition="before">
+                    <button *ngIf="!readonly && deviceSelected.type !== deviceType.internal" 
+                            mat-menu-item
+                            class="context-menu"
+                            (click)="onEditOptions(element)">
+                        {{'device.list-options' | translate}}
+                    </button>
+                    <button mat-menu-item 
+                            class="context-menu"
+                            (click)="onCopyTagToClipboard(element)">
+                        {{'device.list-clipboard' | translate}}
+                    </button>
+                </mat-menu>
             </mat-cell>
         </ng-container>
 

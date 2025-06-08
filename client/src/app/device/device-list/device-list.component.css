@@ -56,7 +56,7 @@
 
 
 .mat-column-address {
-    flex: 2 1 300px;
+    flex: 2 1 280px;
 }
 
 .mat-column-device {
@@ -64,11 +64,23 @@
 }
 
 .mat-column-type {
-    flex: 0 0 160px;
+    flex: 0 0 120px;
 }
 
 .mat-column-value {
-    flex: 0 0 180px;
+    flex: 2 1 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 10px;
+}
+
+.mat-column-timestamp {
+    flex: 0 0 140px;
+}
+
+.mat-column-description {
+    flex: 1 1 140px;
 }
 
 .mat-column-logger {
@@ -81,8 +93,8 @@
     height: 20px;
 }
 
-.mat-column-graph {
-    flex: 0 0 30px;
+.mat-column-info {
+    flex: 0 0 40px;
 }
 
 .mat-column-warning {
@@ -130,4 +142,8 @@
     margin-bottom: 6px;
     padding: 3px 1px 3px 2px;
     border-radius: 2px;
+}
+
+.context-menu {
+    font-size: 13px;
 }

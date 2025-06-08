@@ -140,7 +140,7 @@ function AlarmsManager(_runtime) {
     this.getAlarmsHistory = function (query, groups) {
         return new Promise(function (resolve, reject) {
             var history = [];
-            alarmstorage.getAlarmsHistory(query.from, query.to).then(result => {
+            alarmstorage.getAlarmsHistory(query.start, query.end).then(result => {
                 for (var i = 0; i < result.length; i++) {
                     var alr = new AlarmHistory(result[i].nametype);
                     alr.status = result[i].status;
@@ -179,21 +179,23 @@ function AlarmsManager(_runtime) {
 
     /**
      * Set Ack to alarm
-     * @param {*} alarmname 
+     * @param {*} alarmName 
      * @returns 
      */
-    this.setAlarmAck = function (alarmname, userId, groups) {
+    this.setAlarmAck = function (alarmName, userId, groups) {
         return new Promise(function (resolve, reject) {
             var changed = [];
             var authError = false;
             Object.keys(alarms).forEach(alrkey => {
                 alarms[alrkey].forEach(alr => {
-                    if (alr.getId() === alarmname) {
+                    if (alarmName === null || alr.getId() === alarmName) {
                         var mask = ((alr.tagproperty.permission >> 8) & 255);
                         var canack = (mask) ? mask & groups : 1;
                         if (canack) {
-                            alr.setAck(userId);
-                            changed.push(alr);
+                            if (alr.isToAck() > 0) {
+                                alr.setAck(userId);
+                                changed.push(alr);
+                            }
                         } else {
                             authError = true;
                         }
@@ -223,6 +225,24 @@ function AlarmsManager(_runtime) {
             }).catch(function (err) {
                 reject(err);
             });
+        });
+    }
+
+    /**
+     * Clear Alarm history
+     */
+    this.checkRetention = function () {
+        return new Promise(async function (resolve, reject) {
+            if (settings.alarms && settings.alarms.retention !== 'none') {
+                alarmstorage.clearAlarmsHistory(utils.getRetentionLimit(settings.alarms.retention)).then((result) => {
+                    logger.info(`alarms.checkRetention processed`);
+                    resolve(true);
+                }).catch(function (err) {
+                    reject(err);
+                });
+            } else {
+                resolve();
+            }
         });
     }
 
@@ -451,7 +471,7 @@ function AlarmsManager(_runtime) {
     }
 
     var _isAlarmEnabled = function (alarm) {
-        if (alarm && alarm.enabled && alarm.checkdelay > 0 && utils.isValidRange(alarm.min, alarm.max) && alarm.timedelay) {
+        if (alarm && alarm.enabled && alarm.checkdelay > 0 && utils.isValidRange(alarm.min, alarm.max)) {
             return true;
         }
         return false;
@@ -465,7 +485,7 @@ function AlarmsManager(_runtime) {
     }
 
     var _isActionsValid = function (action) {
-        if (action && action.checkdelay > 0 && utils.isValidRange(action.min, action.max) && action.timedelay) {
+        if (action && action.checkdelay > 0 && utils.isValidRange(action.min, action.max)) {
             return true;
         }
         return false;
@@ -524,12 +544,13 @@ function Alarm(name, type, subprop, tagprop) {
             case AlarmStatusEnum.VOID:
                 //  check to activate
                 if (!onrange) {
+                    this.ontime = 0;
                     return false;
                 } else if (!this.ontime) {
                     this.ontime = dt;
                     return false;
                 }
-                if (this.ontime + (this.subproperty.timedelay * TimeMultiplier) < time) {
+                if (this.ontime + (this.subproperty.timedelay * TimeMultiplier) <= time) {
                     this.status = AlarmStatusEnum.ON;
                     return true;
                 }
@@ -606,10 +627,13 @@ function Alarm(name, type, subprop, tagprop) {
         if (this.subproperty.ackmode === AlarmAckModeEnum.float) {
             return -1;
         }
-        if (this.subproperty.ackmode === AlarmAckModeEnum.ackpassive && this.status === AlarmStatusEnum.ON) {
-            return 0;
+        if (this.subproperty.ackmode === AlarmAckModeEnum.ackpassive && this.status === AlarmStatusEnum.OFF) {
+            return 1;
         }
-        return 1;
+        if (this.subproperty.ackmode === AlarmAckModeEnum.ackactive && (this.status === AlarmStatusEnum.OFF || this.status === AlarmStatusEnum.ON)) {
+            return 1;
+        }
+        return 0;
     }
 }
 

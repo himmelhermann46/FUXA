@@ -1,6 +1,6 @@
 /* eslint-disable @angular-eslint/component-class-suffix */
-import { Component, Inject, Input, AfterViewInit, ViewChild } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { Component, Inject, Input, AfterViewInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
+import { MAT_LEGACY_DIALOG_DATA as MAT_DIALOG_DATA, MatLegacyDialog as MatDialog, MatLegacyDialogRef as MatDialogRef } from '@angular/material/legacy-dialog';
 
 import { SelOptionsComponent } from '../../gui-helpers/sel-options/sel-options.component';
 
@@ -15,7 +15,8 @@ import { PropertyType } from './flex-input/flex-input.component';
 @Component({
     selector: 'gauge-property',
     templateUrl: './gauge-property.component.html',
-    styleUrls: ['./gauge-property.component.css']
+    styleUrls: ['./gauge-property.component.css'],
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class GaugePropertyComponent implements AfterViewInit {
 
@@ -53,24 +54,24 @@ export class GaugePropertyComponent implements AfterViewInit {
 
     ngAfterViewInit() {
         this.defaultValue = this.data.default;
-        if (this.dialogType === GaugeDialogType.Input) {
-            this.flexHead.withProperty = PropertyType.input;
-        } else if (this.dialogType === GaugeDialogType.ValueAndUnit) {
-            this.flexHead.withProperty = PropertyType.output;
-        } else {
-            this.flexHead.defaultValue = this.defaultValue;
-            this.flexHead.withProperty = PropertyType.range;
-            if (this.dialogType === GaugeDialogType.ValueWithRef) {
-                this.flexHead.withProperty = PropertyType.text;
-            } else if (this.dialogType === GaugeDialogType.Step) {
-                this.flexHead.withProperty = PropertyType.step;
-            } else if (this.dialogType === GaugeDialogType.MinMax) {
-                this.flexHead.withProperty = PropertyType.minmax;
+        if (this.data.withProperty !== false) { // else undefined
+            if (this.dialogType === GaugeDialogType.Input) {
+                this.flexHead.withProperty = PropertyType.input;
+            } else if (this.dialogType === GaugeDialogType.ValueAndUnit) {
+                this.flexHead.withProperty = PropertyType.output;
+            } else {
+                this.flexHead.defaultValue = this.defaultValue;
+                this.flexHead.withProperty = PropertyType.range;
+                if (this.dialogType === GaugeDialogType.ValueWithRef) {
+                    this.flexHead.withProperty = PropertyType.text;
+                } else if (this.dialogType === GaugeDialogType.Step) {
+                    this.flexHead.withProperty = PropertyType.step;
+                } else if (this.dialogType === GaugeDialogType.MinMax) {
+                    this.flexHead.withProperty = PropertyType.minmax;
+                }
             }
         }
-
         if (this.data.withBitmask) {
-            this.withBitmask = this.data.withBitmask;
             this.withBitmask = this.data.withBitmask;
         }
     }
@@ -118,7 +119,7 @@ export class GaugePropertyComponent implements AfterViewInit {
     isToolboxToShow() {
         if (this.dialogType === GaugeDialogType.RangeWithAlarm || this.dialogType === GaugeDialogType.Range || this.dialogType === GaugeDialogType.Step ||
             this.dialogType === GaugeDialogType.RangeAndText) {
-            return true;
+            return this.data.withProperty !== false;
         }
         return false;
     }
@@ -182,7 +183,8 @@ export enum GaugeDialogType {
     Graph,
     Iframe,
     Table,
-    Input
+    Input,
+    Panel
 }
 
 @Component({
@@ -214,3 +216,20 @@ export class DialogGaugePermission {
         this.dialogRef.close(this.data);
     }
 }
+
+// export interface GaugePropertyData {
+//     settings: any;
+//     //devices: Device[];
+//     title: string;
+//     //views: View[];
+//     view: View;
+//     dlgType: GaugeDialogType;
+//     withEvents: boolean;
+//     withActions: boolean;
+//     default: any;
+//     withBitmask: boolean;
+
+//     //inputs: Object.values(this.currentView.items).filter(gs => gs.name && (gs.id.startsWith('HXS_') || gs.id.startsWith('HXI_'))),
+//     // let names = Object.values(this.currentView.items).map(gs => gs.name);
+//     // scripts: this.projectService.getScripts(),
+// }

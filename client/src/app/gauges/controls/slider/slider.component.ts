@@ -9,8 +9,8 @@ import { NgxNouisliderComponent } from '../../../gui-helpers/ngx-nouislider/ngx-
 @Injectable()
 export class SliderComponent {
 
-    static TypeId = 'html_slider';
-    static TypeTag = 'svg-ext-' + SliderComponent.TypeId;
+    // TypeId = 'html_slider';
+    static TypeTag = 'svg-ext-html_slider';
     static LabelTag = 'HtmlSlider';
     static prefix = 'D-SLI_';
 
@@ -67,6 +67,7 @@ export class SliderComponent {
     static initElement(gab: GaugeSettings, resolver: ComponentFactoryResolver, viewContainerRef: ViewContainerRef, options?: any) {
         let ele = document.getElementById(gab.id);
         if (ele) {
+            ele?.setAttribute('data-name', gab.name);
             let htmlSlider = Utils.searchTreeStartWith(ele, this.prefix);
             if (htmlSlider) {
                 const factory = resolver.resolveComponentFactory(NgxNouisliderComponent);
@@ -83,6 +84,7 @@ export class SliderComponent {
                     }
                 }
                 componentRef.instance['myComRef'] = componentRef;
+                componentRef.instance['name'] = gab.name;
                 return componentRef.instance;
             }
         }

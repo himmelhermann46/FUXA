@@ -5,8 +5,7 @@ const utils = require('../utils');
 const Pdfmake = require('pdfmake');
 var fs = require('fs')
 var path = require('path');
-// TODO wait compatibility with arm
-// const imageGenerator = require('./helper/image-generator');
+var imageGenerator = require('./helper/image-generator');
 const { time } = require('console');
 
 'use strict';
@@ -148,14 +147,15 @@ function Report(_property, _runtime) {
             try {
                 let content = { layout: 'lightHorizontalLines', fontSize: item.size }; // optional
                 let header = item.columns.map(col => { 
-                    return { text: col.tag.label || col.tag.name, bold: true, style: [{ alignment: col.align }] }
+                    return { text: col.label || col.tag.label || col.tag.name, bold: true, style: [{ alignment: col.align }] }
                 });
                 //item.columns.map(col => col.tag.address || '');
                 let values = [];
                 let tagsids = item.columns.filter(col => col.type !== 0).map(col => col.tag.id);
                 let fncs = item.columns.filter(col => col.type !== 0).map(col => col.function);
+                let formats = item.columns.filter(col => col.type !== 0).map(col => runtime.devices.getTagFormat(col.tag.id));
                 let timeRange = _getDateRange(item.range);
-                let options = { interval: item.interval, functions: fncs };
+                let options = { interval: item.interval, functions: fncs, formats: formats };
                 await runtime.daqStorage.getNodesValues(tagsids, timeRange.begin.getTime(), timeRange.end.getTime(), options).then(result => {
                     if (!result || !result.length) {
                         values = [item.columns.map(col => { return {text: ''}})];
@@ -222,15 +222,17 @@ function Report(_property, _runtime) {
             if (!values) {
                 values = _getSampleValues(itemChart.chart.lines, timeRange);
             }
-            reject('TODO node create image from canvas is not supported!');
-
-            // TODO wait compatibility with arm
-            // imageGenerator.createImage(itemChart, values).then((content) => {
-            //     resolve(content.toString('base64'));
-            // }).catch(function (err) {
-            //     reject(err);
-            //     logger.error("createImage: " + err);
-            // });
+            try {
+                // TODO wait compatibility with arm
+                imageGenerator.createImage(itemChart, values).then((content) => {
+                    resolve(content.toString('base64'));
+                }).catch(function (err) {
+                    reject(err);
+                    logger.error("createImage: " + err);
+                });
+            }  catch { 
+                reject('TODO node create image from canvas is not supported!');
+            }
         });
     }
 
@@ -253,11 +255,9 @@ function Report(_property, _runtime) {
             };
         } else if (dateRange === ReportDateRangeType.month) {
             var lastMonth = new Date(currentTime || Date.now());
-            lastMonth.setMonth(lastMonth.getMonth() - 1);
-            lastMonth.setDate(-1);
             return { 
-                begin: new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1), 
-                end: new Date(lastMonth.getFullYear(), lastMonth.getMonth(), lastMonth.getDate(), 23, 59, 59)
+                begin: new Date(lastMonth.getFullYear(), lastMonth.getMonth() - 1, 1, 0, 0, 0),
+                end: new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 0, 23, 59, 59)
             };
         } else {
             return { 
@@ -276,7 +276,7 @@ function Report(_property, _runtime) {
                 });
                 let values = [];
                 const timeRange = _getDateRange(item.range);
-                const query = { from: timeRange.begin.getTime(), to: timeRange.end.getTime() };
+                const query = { start: timeRange.begin.getTime(), end: timeRange.end.getTime() };
                 await runtime.alarmsMgr.getAlarmsHistory(query).then(result => {
                     if (!result || !result.length) {
                         values = [Object.values(item.propertyText).map(col => { 
@@ -284,7 +284,11 @@ function Report(_property, _runtime) {
                         })];
                      } else {
                         const property = Object.keys(item.property).filter(prop => { if (item.property[prop]) return prop; });
-                        values = result.filter(alr => { if (item.priority[alr.type]) return alr; });
+                        values = result.filter(alr => { 
+                            if (item.priority[alr.type] && (!item.alarmFilter || !!item.alarmFilter.find(name => name === alr.name))) {
+                                return alr; 
+                            }
+                        });
                         values = values.map(alr => {
                             let row = [];
                             property.forEach((prop) => {
@@ -303,6 +307,7 @@ function Report(_property, _runtime) {
                         })
                      }
                 }).catch(function (err) {
+                    console.error(err);
                     values = [Object.values(item.propertyText).map(col => { return {text: 'ERROR'}})];
                 });
                 content['table'] = {

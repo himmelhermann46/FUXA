@@ -6,7 +6,7 @@
 const utils = require('../../utils');
 const deviceUtils = require('../device-utils');
 
- function FuxaServer(_data, _logger, _events) {
+function FuxaServer(_data, _logger, _events) {
 
     var data = JSON.parse(JSON.stringify(_data)); // Current Device data { id, name, tags, enabled, ... }
     var logger = _logger;
@@ -17,6 +17,7 @@ const deviceUtils = require('../device-utils');
     var tagsMap = {};                   // Map of tag id
     var overloading = 0;                // Overloading counter to mange the break connection
     var tocheck = false;                // Flag that define if there are tags to check by polling
+    var connectionTags = [];            // Tags of connection status of devices
     var type;
 
     /**
@@ -55,13 +56,14 @@ const deviceUtils = require('../device-utils');
         if (_checkWorking(true)) {
             try {
                 if (tocheck) {
-                    var varsValueChanged = _checkVarsChanged();
+                    var varsValueChanged = await _checkVarsChanged();
                     lastTimestampValue = new Date().getTime();
                     _emitValues(varsValue);
-                    if (this.addDaq) {
-                        this.addDaq(varsValueChanged, data.name);
+                    if (this.addDaq && !utils.isEmptyObject(varsValueChanged)) {
+                        this.addDaq(varsValueChanged, data.name, data.id);
                     }
                 }
+                _checkConnectionStatus();
             } catch (err) {
                 logger.error(`'${data.name}' polling error: ${err}`);
             }
@@ -77,11 +79,18 @@ const deviceUtils = require('../device-utils');
         data = JSON.parse(JSON.stringify(_data));
         tagsMap = {};
         var count = Object.keys(data.tags).length;
+        connectionTags = [];
         for (var id in data.tags) {
             tagsMap[id] = data.tags[id];
-            if (data.tags[id].init) {
-                data.tags[id].value = _parseValue(data.tags[id].init);
+            const dataTag = data.tags[id];
+            if (dataTag.init) {
+                data.tags[id].value = _parseValue(dataTag.init, dataTag.type);
             }
+            if (dataTag.sysType === TagSystemTypeEnum.deviceConnectionStatus) {
+                data.tags[id].timestamp = Date.now();
+                connectionTags.push(data.tags[id]);
+            }
+            varsValue[id] = data.tags[id];
         }
         tocheck = !utils.isEmptyObject(data.tags);
         logger.info(`'${data.name}' data loaded (${count})`, true);
@@ -116,8 +125,7 @@ const deviceUtils = require('../device-utils');
      */
     this.getTagProperty = function (id) {
         if (data.tags[id]) {
-            let prop = { id: id, name: data.tags[id].name, type: data.tags[id].type };
-            return prop;
+            return { id: id, name: data.tags[id].name, type: data.tags[id].type, format: data.tags[id].format };
         } else {
             return null;
         }
@@ -127,11 +135,26 @@ const deviceUtils = require('../device-utils');
      * Set the Tag value to device
      */
     this.setValue = function (id, value) {
-        if (data.tags[id]) {
-            var val = _parseValue(value);
+        if (varsValue[id]) {
+            var val = _parseValue(value, varsValue[id].type);
             varsValue[id].value = val;
             varsValue[id].changed = true;
-            logger.info(`'${data.name}' setValue(${id}, ${value})`, true);
+            logger.info(`'${data.name}' setValue(${id}, ${value})`, true, true);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Set the connection status to tag of device sttus
+     * @param {*} deviceId 
+     * @param {*} status 
+     */
+    this.setConnectionStatus = function(deviceId, status) {
+        var tag = connectionTags.find(tag => tag.memaddress === deviceId);
+        if (tag) {
+            tag.value = status;
+            tag.timestamp = Date.now();
         }
     }
 
@@ -151,22 +174,59 @@ const deviceUtils = require('../device-utils');
     this.addDaq = null;      
 
     /**
+     * Return the timestamp of last read tag operation on polling
+     * @returns 
+     */
+     this.lastReadTimestamp = () => {
+        return lastTimestampValue;
+    }
+
+    /**
+     * Return the Daq settings of Tag
+     * @returns 
+     */
+    this.getTagDaqSettings = (tagId) => {
+        return data.tags[tagId] ? data.tags[tagId].daq : null;
+    }
+
+    /**
+     * Set Daq settings of Tag
+     * @returns 
+     */
+    this.setTagDaqSettings = (tagId, settings) => {
+        if (data.tags[tagId]) {
+            utils.mergeObjectsValues(data.tags[tagId].daq, settings);
+        }
+    }
+
+    /**
      * Cheack and parse the value return converted value
      * @param {*} value as string
      */
-    var _parseValue = function (value) {
-        let val = parseFloat(value);
-        if (Number.isNaN(val)) {
-            // maybe boolean
-            val = Number(value);
-            // maybe string
-            if (Number.isNaN(val)) {
-                val = value;
+    var _parseValue = function (value, type) {
+        if (type === 'number') {
+            return parseFloat(value); 
+        } else if (type === 'boolean') {
+            if (typeof value === 'string') {
+                return value.toLowerCase() !== 'false';
             }
+            return Boolean(value);
+        } else if (type === 'string') {
+            return value;
         } else {
-            val = parseFloat(val.toFixed(5));
+            let val = parseFloat(value);
+            if (Number.isNaN(val)) {
+                // maybe boolean
+                val = Number(value);
+                // maybe string
+                if (Number.isNaN(val)) {
+                    val = value;
+                }
+            } else {
+                val = parseFloat(val.toFixed(5));
+            }
+            return val;
         }
-        return val;
     }
 
     /**
@@ -182,12 +242,16 @@ const deviceUtils = require('../device-utils');
     /**
      * Return the Tags that have value changed and clear value changed flag of all Tags 
      */
-    var _checkVarsChanged = () => {
+    var _checkVarsChanged = async () => {
         const timestamp = new Date().getTime();
         var result = {};
         for (var id in data.tags) {
-            if (this.addDaq && !utils.isNullOrUndefined(data.tags[id].value) && deviceUtils.tagDaqToSave(data.tags[id], timestamp)) {
-                result[id] = data.tags[id];
+            if (!utils.isNullOrUndefined(data.tags[id].value)) {
+                data.tags[id].value = await deviceUtils.tagValueCompose(data.tags[id].value, data.tags[id]);
+                data.tags[id].timestamp = timestamp;
+                if (this.addDaq && deviceUtils.tagDaqToSave(data.tags[id], timestamp)) {
+                    result[id] = data.tags[id];
+                }
             }
             data.tags[id].changed = false;
             varsValue[id] = data.tags[id];
@@ -221,6 +285,16 @@ const deviceUtils = require('../device-utils');
         overloading = 0;
         return true;
     }
+
+    var _checkConnectionStatus = function () {
+        var dt = Date.now() - 60000;
+        connectionTags.forEach(tag => {
+            if (tag.value && tag.timestamp < dt) {
+                tag.value = 0;
+            }
+        });
+    }
+
 }
 
 module.exports = {
@@ -229,4 +303,8 @@ module.exports = {
     create: function (data, logger, events) {
         return new FuxaServer(data, logger, events);
     }
+}
+
+var TagSystemTypeEnum  = {
+    deviceConnectionStatus: 1,
 }

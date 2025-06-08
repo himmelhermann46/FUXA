@@ -45,6 +45,7 @@ export class HtmlGraphComponent extends GaugeBaseComponent {
     static initElement(gab: GaugeSettings, resolver: ComponentFactoryResolver, viewContainerRef: ViewContainerRef, isview: boolean): GraphBaseComponent {
         let ele = document.getElementById(gab.id);
         if (ele) {
+            ele?.setAttribute('data-name', gab.name);
             let htmlGraph = Utils.searchTreeStartWith(ele, this.prefixD);
             if (htmlGraph) {
                 let factory = resolver.resolveComponentFactory(GraphBaseComponent);
@@ -66,10 +67,20 @@ export class HtmlGraphComponent extends GaugeBaseComponent {
                 componentRef.changeDetectorRef.detectChanges();
                 htmlGraph.appendChild(componentRef.location.nativeElement);
                 let opt = <GraphOptions>{ panel: { height: htmlGraph.clientHeight, width: htmlGraph.clientWidth } };
-                opt = { ...GraphBarComponent.DefaultOptions(), ...opt };
+                if (gab.type.endsWith(this.suffixBar)) {
+                    opt = { ...GraphBarComponent.DefaultOptions(), ...opt };
+                } else {
+                    opt = { ...GraphPieComponent.DefaultOptions(), ...opt };
+                }
                 componentRef.instance.setOptions(opt);
+                if (gab.property?.options?.backgroundColor) {
+                    window['svgEditor']?.setColor(gab.property.options.backgroundColor, 100, 'fill');
+                } else {
+                    window['svgEditor']?.setColor('none', 100, 'fill');
+                }
 
                 componentRef.instance['myComRef'] = componentRef;
+                componentRef.instance['name'] = gab.name;
                 return componentRef.instance;
             }
         }

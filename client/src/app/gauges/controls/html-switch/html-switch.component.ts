@@ -1,19 +1,21 @@
 import { Injectable, ViewContainerRef, ComponentFactoryResolver } from '@angular/core';
 
-import { GaugeSettings, Variable, GaugeStatus, Event } from '../../../_models/hmi';
+import { GaugeSettings, Variable, GaugeStatus, Event, GaugeProperty } from '../../../_models/hmi';
 import { GaugeDialogType } from '../../gauge-property/gauge-property.component';
 
 import { NgxSwitchComponent } from '../../../gui-helpers/ngx-switch/ngx-switch.component';
 import { Utils } from '../../../_helpers/utils';
+import { GaugeBaseComponent } from '../../gauge-base/gauge-base.component';
 
 @Injectable()
-export class HtmlSwitchComponent {
+export class HtmlSwitchComponent extends GaugeBaseComponent {
 
     static TypeTag = 'svg-ext-html_switch';
     static LabelTag = 'HtmlSwitch';
     static prefix = 'T-HXT_';
 
     constructor() {
+        super();
     }
 
     static getSignals(pro: any) {
@@ -36,6 +38,10 @@ export class HtmlSwitchComponent {
         return GaugeDialogType.Switch;
     }
 
+    static isBitmaskSupported(): boolean {
+        return true;
+    }
+
     static bindEvents(ga: GaugeSettings, slider?: NgxSwitchComponent, callback?: any): Event {
         if (slider) {
             slider.bindUpdate((val) => {
@@ -52,14 +58,20 @@ export class HtmlSwitchComponent {
     static processValue(ga: GaugeSettings, svgele: any, sig: Variable, gaugeStatus: GaugeStatus, switcher?: NgxSwitchComponent) {
         try {
             if (switcher) {
-                let val = parseFloat(sig.value);
-                if (Number.isNaN(val)) {
+                let value = parseFloat(sig.value);
+                if (Number.isNaN(value)) {
                     // maybe boolean
-                    val = Number(sig.value);
+                    value = Number(sig.value);
                 } else {
-                    val = parseFloat(val.toFixed(5));
+                    value = parseFloat(value.toFixed(5));
                 }
-                switcher.setValue(val);
+                if (typeof sig.value !== 'boolean') {
+                    value = GaugeBaseComponent.checkBitmaskAndValue((<GaugeProperty>ga.property).bitmask,
+                                                                            value,
+                                                                            (<GaugeProperty>ga.property).options.offValue,
+                                                                            (<GaugeProperty>ga.property).options.onValue);
+                }
+                switcher.setValue(value);
             }
         } catch (err) {
             console.error(err);
@@ -69,6 +81,7 @@ export class HtmlSwitchComponent {
     static initElement(ga: GaugeSettings, resolver: ComponentFactoryResolver, viewContainerRef: ViewContainerRef, options?: any) {
         let ele = document.getElementById(ga.id);
         if (ele) {
+            ele?.setAttribute('data-name', ga.name);
             let htmlSwitch = Utils.searchTreeStartWith(ele, this.prefix);
             if (htmlSwitch) {
                 const factory = resolver.resolveComponentFactory(NgxSwitchComponent);
@@ -78,7 +91,7 @@ export class HtmlSwitchComponent {
                 componentRef.changeDetectorRef.detectChanges();
                 const loaderComponentElement = componentRef.location.nativeElement;
                 htmlSwitch.appendChild(loaderComponentElement);
-                if (ga.property && ga.property.options) {
+                if (ga.property?.options) {
                     ga.property.options.height = htmlSwitch.clientHeight;
                     if (componentRef.instance.setOptions(ga.property.options)) {
                         if (ga.property.options.radius) {
@@ -86,6 +99,8 @@ export class HtmlSwitchComponent {
                         }
                     }
                 }
+                componentRef.instance.isReadonly = !!ga.property?.events?.length;
+                componentRef.instance['name'] = ga.name;
                 return componentRef.instance;
             }
         }

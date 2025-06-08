@@ -1,6 +1,6 @@
 import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { MatTable, MatTableDataSource } from '@angular/material/table';
+import { MatLegacyDialog as MatDialog } from '@angular/material/legacy-dialog';
+import { MatLegacyTable as MatTable, MatLegacyTableDataSource as MatTableDataSource } from '@angular/material/legacy-table';
 import { MatSort } from '@angular/material/sort';
 import { Subscription } from 'rxjs';
 
@@ -66,6 +66,7 @@ export class AlarmListComponent implements OnInit, AfterViewInit, OnDestroy {
     editAlarm(alarm: Alarm, toAdd: number) {
 		let malarm: Text = JSON.parse(JSON.stringify(alarm));
         let dialogRef = this.dialog.open(AlarmPropertyComponent, {
+            disableClose: true,
             data: { alarm: malarm, editmode: toAdd, alarms: this.dataSource.data,
                 devices: Object.values(this.projectService.getDevices()), views: this.projectService.getViews() },
             position: { top: '80px' }

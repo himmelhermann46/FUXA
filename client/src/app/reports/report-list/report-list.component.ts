@@ -1,27 +1,39 @@
+import { animate, state, style, transition, trigger } from '@angular/animations';
 import { AfterViewInit, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
+import { MatLegacyDialog as MatDialog } from '@angular/material/legacy-dialog';
 import { MatSort } from '@angular/material/sort';
-import { MatTable, MatTableDataSource } from '@angular/material/table';
+import { MatLegacyTable as MatTable, MatLegacyTableDataSource as MatTableDataSource } from '@angular/material/legacy-table';
 import { TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { Utils } from '../../_helpers/utils';
 import { Report, ReportSchedulingType, REPORT_PREFIX } from '../../_models/report';
 import { CommandService } from '../../_services/command.service';
+import { DiagnoseService } from '../../_services/diagnose.service';
 import { ProjectService } from '../../_services/project.service';
-import { ReportEditorComponent } from '../report-editor/report-editor.component';
+import { ReportEditorComponent, ReportEditorData } from '../report-editor/report-editor.component';
+import * as FileSaver from 'file-saver';
 
 @Component({
     selector: 'app-report-list',
     templateUrl: './report-list.component.html',
-    styleUrls: ['./report-list.component.css']
+    styleUrls: ['./report-list.component.css'],
+    animations: [
+        trigger('detailExpand', [
+          state('collapsed', style({height: '0px', minHeight: '0'})),
+          state('expanded', style({height: '*'})),
+          transition('expanded <=> collapsed', animate('225ms cubic-bezier(0.4, 0.0, 0.2, 1)')),
+        ]),
+      ],
 })
 export class ReportListComponent implements OnInit, AfterViewInit, OnDestroy {
 
-    displayedColumns = ['select', 'name', 'receiver', 'scheduling', 'type', 'create', 'remove'];
+    displayedColumns = ['select', 'name', 'receiver', 'scheduling', 'type', 'expand', 'create', 'remove'];
     dataSource = new MatTableDataSource([]);
 
     private subscriptionLoad: Subscription;
     private schedulingType = ReportSchedulingType;
+    expandedElement: Report | null;
+    currentDetails: string[];
 
     @ViewChild(MatTable, {static: false}) table: MatTable<any>;
     @ViewChild(MatSort, {static: false}) sort: MatSort;
@@ -29,7 +41,8 @@ export class ReportListComponent implements OnInit, AfterViewInit, OnDestroy {
     constructor(public dialog: MatDialog,
         private translateService: TranslateService,
         private projectService: ProjectService,
-        private commandService: CommandService) { }
+        private commandService: CommandService,
+        private diagnoseService: DiagnoseService) { }
 
     ngOnInit() {
         this.loadReports();
@@ -78,10 +91,12 @@ export class ReportListComponent implements OnInit, AfterViewInit, OnDestroy {
 
     editReport(report: Report, toAdd: number) {
         let dlgwidth = (toAdd < 0) ? 'auto' : '80%';
-        let reports = this.dataSource.data.filter(s => s.id !== report.id);
 		let mreport: Report = JSON.parse(JSON.stringify(report));
         let dialogRef = this.dialog.open(ReportEditorComponent, {
-            data: { report: mreport, editmode: toAdd, reports: reports, devices: Object.values(this.projectService.getDevices()) },
+            data: <ReportEditorData> {
+                report: mreport,
+                editmode: toAdd
+            },
             width: dlgwidth,
             position: { top: '80px' }
         });
@@ -103,4 +118,30 @@ export class ReportListComponent implements OnInit, AfterViewInit, OnDestroy {
     private loadReports() {
         this.dataSource.data = this.projectService.getReports().sort((a: Report, b: Report) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     }
+
+    toogleDetails(element: Report) {
+        this.expandedElement = this.expandedElement === element ? null : element;
+        this.loadDetails(this.expandedElement);
+    }
+
+    loadDetails(element: Report) {
+        this.currentDetails = [];
+        if (element) {
+            this.diagnoseService.getReportsDir(element).subscribe(result => {
+                this.currentDetails = result;
+            }, err => {
+                console.error('loadDetails err: ' + err);
+            });
+        }
+    }
+
+    onDownloadDetail(file: string) {
+        this.commandService.getReportFile(file).subscribe(content => {
+            let blob = new Blob([content], { type: 'application/pdf' });
+            FileSaver.saveAs(blob, file);
+        }, err => {
+            console.error('Download Report File err:', err);
+        });
+    }
 }
+

@@ -1,6 +1,6 @@
 import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { MatTable, MatTableDataSource } from '@angular/material/table';
+import { MatLegacyDialog as MatDialog } from '@angular/material/legacy-dialog';
+import { MatLegacyTable as MatTable, MatLegacyTableDataSource as MatTableDataSource } from '@angular/material/legacy-table';
 import { MatSort } from '@angular/material/sort';
 import { Subscription } from 'rxjs';
 
@@ -8,10 +8,10 @@ import { TranslateService } from '@ngx-translate/core';
 import { ProjectService } from '../../_services/project.service';
 import { ScriptEditorComponent } from '../script-editor/script-editor.component';
 import { ScriptSchedulingComponent, SchedulingData } from '../script-scheduling/script-scheduling.component';
-import { Script, SCRIPT_PREFIX, ScriptScheduling } from '../../_models/script';
+import { Script, SCRIPT_PREFIX, ScriptMode, ScriptScheduling, ScriptSchedulingMode } from '../../_models/script';
 import { Utils } from '../../_helpers/utils';
 import { ScriptPermissionComponent } from '../script-permission/script-permission.component';
-import { ScriptModeComponent } from '../script-mode/script-mode.component';
+import { ScriptModeComponent, ScriptModeType } from '../script-mode/script-mode.component';
 
 @Component({
     selector: 'app-script-list',
@@ -20,7 +20,7 @@ import { ScriptModeComponent } from '../script-mode/script-mode.component';
 })
 export class ScriptListComponent implements OnInit, AfterViewInit, OnDestroy {
 
-    displayedColumns = ['select', 'name', 'params', 'scheduling', 'type', 'mode', 'options', 'remove'];
+    displayedColumns = ['select', 'name', 'params', 'scheduling', 'mode', 'options', 'remove'];
     dataSource = new MatTableDataSource([]);
 
     private subscriptionLoad: Subscription;
@@ -38,9 +38,6 @@ export class ScriptListComponent implements OnInit, AfterViewInit, OnDestroy {
         this.subscriptionLoad = this.projectService.onLoadHmi.subscribe(res => {
             this.loadScripts();
         });
-        // Object.values(this.alarmsEnum).forEach(key => {
-        //     this.translateService.get('alarm.property-' + key).subscribe((txt: string) => { this.alarmsType[key] = txt });
-        // });
     }
 
     ngAfterViewInit() {
@@ -57,8 +54,24 @@ export class ScriptListComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     onAddScript() {
-        let script = new Script(Utils.getGUID(SCRIPT_PREFIX));
-		this.editScript(script, 1);
+        let dialogRef = this.dialog.open(ScriptModeComponent, {
+            disableClose: true,
+            position: { top: '60px' },
+            data: <ScriptModeType> {
+                mode: ScriptMode.SERVER,
+                name: Utils.getNextName('script_', this.dataSource.data.map(s => s.name)),
+                newScript: true
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                let script = new Script(Utils.getGUID(SCRIPT_PREFIX));
+                script.name = result.name;
+                script.mode = result.mode;
+                this.editScript(script, 1);
+            }
+        });
     }
 
     onEditScript(script: Script) {
@@ -75,6 +88,7 @@ export class ScriptListComponent implements OnInit, AfterViewInit, OnDestroy {
 		let mscript: Script = JSON.parse(JSON.stringify(script));
         let dialogRef = this.dialog.open(ScriptEditorComponent, {
             data: { script: mscript, editmode: toAdd, scripts: scripts, devices: Object.values(this.projectService.getDevices()) },
+            disableClose: true,
             width: dlgwidth,
             position: { top: '80px' }
         });
@@ -108,8 +122,17 @@ export class ScriptListComponent implements OnInit, AfterViewInit, OnDestroy {
     getScheduling(script: Script) {
         if (script.scheduling) {
             let result = '';
-            if (script.scheduling.interval) {
-                result += `${script.scheduling.interval} sec.`;
+            if (script.scheduling.mode) {
+                result = this.translateService.instant('script.scheduling-' + script.scheduling.mode) + ' - ';
+            }
+            if (script.scheduling.mode ===  ScriptSchedulingMode.interval || script.scheduling.mode === ScriptSchedulingMode.start) {
+                if (script.scheduling.interval) {
+                    result += `${script.scheduling.interval} sec.`;
+                } else {
+                    result += this.translateService.instant('report.scheduling-none');
+                }
+            } else if (script.scheduling.mode === ScriptSchedulingMode.scheduling) {
+                result += `${script.scheduling.schedules?.length}`;
             }
             return result;
         }
@@ -119,6 +142,7 @@ export class ScriptListComponent implements OnInit, AfterViewInit, OnDestroy {
     onEditScriptScheduling(script: Script) {
         let dialogRef = this.dialog.open(ScriptSchedulingComponent, {
             data: <SchedulingData> { scheduling: script.scheduling },
+            disableClose: true,
             position: { top: '60px' }
         });
         dialogRef.afterClosed().subscribe((result: ScriptScheduling) => {
@@ -134,6 +158,7 @@ export class ScriptListComponent implements OnInit, AfterViewInit, OnDestroy {
     onEditScriptPermission(script: Script) {
         let permission = script.permission;
         let dialogRef = this.dialog.open(ScriptPermissionComponent, {
+            disableClose: true,
             position: { top: '60px' },
             data: { permission: permission }
         });
@@ -150,6 +175,7 @@ export class ScriptListComponent implements OnInit, AfterViewInit, OnDestroy {
 
     onEditScriptMode(script: Script) {
         let dialogRef = this.dialog.open(ScriptModeComponent, {
+            disableClose: true,
             position: { top: '60px' },
             data: { mode: script.mode }
         });

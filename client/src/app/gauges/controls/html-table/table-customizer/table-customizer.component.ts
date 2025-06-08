@@ -1,7 +1,7 @@
 /* eslint-disable @angular-eslint/component-class-suffix */
 import { Component, OnInit, Inject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { MatTableDataSource } from '@angular/material/table';
+import { MAT_LEGACY_DIALOG_DATA as MAT_DIALOG_DATA, MatLegacyDialog as MatDialog, MatLegacyDialogRef as MatDialogRef } from '@angular/material/legacy-dialog';
+import { MatLegacyTableDataSource as MatTableDataSource } from '@angular/material/legacy-table';
 import { TableType, TableColumn, TableRow, TableCell, TableCellType } from '../../../../_models/hmi';
 
 import { ProjectService } from '../../../../_services/project.service';
@@ -178,6 +178,7 @@ export class TableCustomizerComponent implements OnInit {
 @Component({
     selector: 'table-cell-dialog',
     templateUrl: 'table-cell.dialog.html',
+    styleUrls: ['./table-customizer.component.css']
 })
 export class DialogTableCell {
     tableType = TableType;

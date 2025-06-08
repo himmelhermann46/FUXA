@@ -6,7 +6,8 @@ const axios = require('axios');
 const utils = require('../../utils');
 const deviceUtils = require('../device-utils');
 
-function HTTPclient(_data, _logger, _events) {
+function HTTPclient(_data, _logger, _events, _runtime) {
+    var runtime = _runtime;
     var data = _data;                   // Current webapi data
     var logger = _logger;               // Logger var working = false;                // Working flag to manage overloading polling and connection
     var working = false;                // Working flag to manage overloading polling and connection
@@ -77,7 +78,7 @@ function HTTPclient(_data, _logger, _events) {
      * Read values in polling mode 
      * Update the tags values list, save in DAQ if value changed or in interval and emit values to clients
      */
-    this.polling = function () {
+    this.polling = async function () {
         if (_checkWorking(true)) {
             // check connection status
             let dt = new Date().getTime();
@@ -86,26 +87,23 @@ function HTTPclient(_data, _logger, _events) {
                 _checkWorking(false);
             }
             try {
-                _readRequest().then(result => {
-                    if (result) {
-                        let varsValueChanged = _updateVarsValue(result);
-                        lastTimestampValue = new Date().getTime();
-                        _emitValues(varsValue);
-                        if (this.addDaq) {
-                            this.addDaq(varsValueChanged, data.name);
-                        }
-                        if (lastStatus !== 'connect-ok') {
-                            _emitStatus('connect-ok');                    
-                        }
+                const result = await _readRequest();
+                if (result) {
+                    let varsValueChanged = await _updateVarsValue(result);
+                    lastTimestampValue = new Date().getTime();
+                    _emitValues(varsValue);
+                    if (this.addDaq && !utils.isEmptyObject(varsValueChanged)) {
+                        this.addDaq(varsValueChanged, data.name, data.id);
                     }
-                    _checkWorking(false);
-                }, reason => {
-                    logger.error(`'${data.name}' _readRequest error! ${reason}`);
-                    _checkWorking(false);
-                });
-            } catch {
+                    if (lastStatus !== 'connect-ok') {
+                        _emitStatus('connect-ok');                    
+                    }
+                }
                 _checkWorking(false);
-            }
+            } catch (reason){
+                logger.error(`'${data.name}' _readRequest error! ${reason}`);
+                _checkWorking(false);
+            };
         } else {
             _emitStatus('connect-busy');
         }
@@ -126,6 +124,14 @@ function HTTPclient(_data, _logger, _events) {
         this.addDaq = fnc;                          // Add the DAQ value to db history
     }
     this.addDaq = null;                             // Callback to add the DAQ value to db history
+
+    /**
+     * Return the timestamp of last read tag operation on polling
+     * @returns 
+     */
+     this.lastReadTimestamp = () => {
+        return lastTimestampValue;
+    }
 
     /**
      * Load Tags to read by polling
@@ -170,22 +176,25 @@ function HTTPclient(_data, _logger, _events) {
     /**
      * Set the Tag value, not used
      */
-    this.setValue = function (tagId, value) {
+    this.setValue = async function (tagId, value) {
         if (apiProperty.ownFlag && data.tags[tagId]) {
             if (apiProperty.postTags) {
-                data.tags[tagId].value = _parseValue(data.tags[tagId].type, value);
+                value = _parseValue(data.tags[tagId].type, value);
+                data.tags[tagId].value = await deviceUtils.tagRawCalculator(value, data.tags[tagId], runtime);
                 axios.post(apiProperty.getTags, [{id: tagId, value: data.tags[tagId].value}]).then(res => {
                     lastTimestampRequest = new Date().getTime();
-                    logger.info(`setValue '${data.tags[tagId].name}' to ${value})`, true);
+                    logger.info(`setValue '${data.tags[tagId].name}' to ${value})`, true, true);
                 }).catch(err => {
                     logger.error(`setValue '${data.tags[tagId].name}' error! ${err}`);
                 });
             } else {
                 logger.error(`postTags undefined (setValue)`, true);
             }
+            return true;
         } else {
             logger.error(`setValue not supported!`, true);
         }
+        return false;
     }
 
     /**
@@ -200,8 +209,7 @@ function HTTPclient(_data, _logger, _events) {
      */
     this.getTagProperty = function (id) {
         if (data.tags[id]) {
-            let prop = { id: id, name: data.tags[id].name, type: data.tags[id].type };
-            return prop;
+            return { id: id, name: data.tags[id].name, type: data.tags[id].type, format: data.tags[id].format };
         } else {
             return null;
         }
@@ -218,6 +226,24 @@ function HTTPclient(_data, _logger, _events) {
                 reject(err);
             }
         });
+    }
+
+    /**
+     * Return the Daq settings of Tag
+     * @returns 
+     */
+    this.getTagDaqSettings = (tagId) => {
+        return data.tags[tagId] ? data.tags[tagId].daq : null;
+    }
+
+    /**
+     * Set Daq settings of Tag
+     * @returns 
+     */
+    this.setTagDaqSettings = (tagId, settings) => {
+        if (data.tags[tagId]) {
+            utils.mergeObjectsValues(data.tags[tagId].daq, settings);
+        }
     }
 
     var _checkConnection = function () {
@@ -262,7 +288,7 @@ function HTTPclient(_data, _logger, _events) {
      * For WebAPI NotOwn: first convert the request data to a flat struct
      * @param {*} reqdata 
      */
-    var _updateVarsValue = (reqdata) => {
+    var _updateVarsValue = async (reqdata) => {
         const timestamp = new Date().getTime();
         var changed = {};
         if (apiProperty.ownFlag) {
@@ -277,8 +303,12 @@ function HTTPclient(_data, _logger, _events) {
                     }
                     requestItemsMap[id] = [reqdata[i]];
                     reqdata[i].changed = varsValue[id] && reqdata[i].value !== varsValue[id].value;
-                    if (this.addDaq && !utils.isNullOrUndefined(reqdata[i].value) && deviceUtils.tagDaqToSave(reqdata[i], timestamp)) {
-                        changed[id] = reqdata[i];
+                    if (!utils.isNullOrUndefined(reqdata[i].value)) {
+                        reqdata[i].value = await deviceUtils.tagValueCompose(reqdata[i].value, data.tags[id]);
+                        reqdata[i].timestamp = timestamp;
+                        if (this.addDaq && deviceUtils.tagDaqToSave(reqdata[i], timestamp)) {
+                            changed[id] = reqdata[i];
+                        }
                     }
                     reqdata[i].changed = false;
                     varsValue[id] = reqdata[i];
@@ -296,7 +326,13 @@ function HTTPclient(_data, _logger, _events) {
                         var tag = requestItemsMap[key][index];
                         if (tag) {
                             someval = true;
-                            result[tag.id] = { id: tag.id, value: (tag.memaddress) ? items[tag.memaddress] : items[key], type: items[key].type, daq: tag.daq };
+                            result[tag.id] = {
+                                id: tag.id,
+                                value: (tag.memaddress) ? items[tag.memaddress] : items[key],
+                                type: items[key].type,
+                                daq: tag.daq,
+                                tagref: tag
+                            };
                         }
                     }
                 }
@@ -304,9 +340,13 @@ function HTTPclient(_data, _logger, _events) {
             if (someval) {
                 for (var id in result) {
                     result[id].changed = varsValue[id] && result[id].value !== varsValue[id].value;
-                    if (this.addDaq && !utils.isNullOrUndefined(result[id].value) && deviceUtils.tagDaqToSave(result[id], timestamp)) {
-                        changed[id] = result[id];
-                    }                    
+                    if (!utils.isNullOrUndefined(result[id].value)) {
+                        result[id].value = await deviceUtils.tagValueCompose(result[id].value, result[id].tagref, runtime);
+                        result[id].timestamp = timestamp;
+                        if (this.addDaq && deviceUtils.tagDaqToSave(result[id], timestamp)) {
+                            changed[id] = result[id];
+                        }
+                    }               
                     result[id].changed = false;
                     varsValue[id] = result[id];
                 }
@@ -446,8 +486,8 @@ module.exports = {
     init: function (settings) {
         // deviceCloseTimeout = settings.deviceCloseTimeout || 15000;
     },
-    create: function (data, logger, events) {
-        return new HTTPclient(data, logger, events);
+    create: function (data, logger, events, runtime) {
+        return new HTTPclient(data, logger, events, runtime);
     },
     getRequestResult: getRequestResult
 }

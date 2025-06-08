@@ -1,5 +1,20 @@
 import { Utils } from '../_helpers/utils';
 
+export const FuxaServer = {
+    id: '0',
+    name: 'FUXA'
+};
+
+export const PlaceholderDevice = {
+    id: '@',
+    name: 'Placeholder',
+    tags: [{
+        id: '@',
+        name: '@',
+        device: '@'
+    }]
+};
+
 export class Device {
     /** Device id, GUID */
     id: string;
@@ -14,7 +29,7 @@ export class Device {
     /** Polling interval, check changed value after ask value, by OPCUA there is a monitor  */
     polling: number;
     /** Tags list of Tag */
-    tags: any;
+    tags: DictionaryTag;
 
     constructor(_id: string) {
         this.id = _id;
@@ -33,6 +48,10 @@ export class Device {
     static isWebApiProperty(device: Device): boolean {
         return device.type === DeviceType.WebAPI && device.property.getTags;
     }
+}
+
+interface DictionaryTag {
+    [id: string]: Tag;
 }
 
 export class Tag {
@@ -56,16 +75,30 @@ export class Tag {
     access: string;
     /** Options, used for WebAPI and MQTT */
     options: any;
-    /** not used yet */
-    format: any;
+    /** Digits format of value, number of digits to appear after the decimal point */
+    format: number;
     /** Daq settings */
     daq: TagDaq;
     /** Init value */
     init: string;
+    /** Value scaling properties */
+    scale: TagScale;
+    /** Scale function to use when reading tag */
+    scaleReadFunction?: string;
+    /** Optional JSON encoded params and values for above script */
+    scaleReadParams?: string;
+    /** Scale function to use when writing tag */
+    scaleWriteFunction?: string;
+    /** Optional JSON encoded params and values for above script */
+    scaleWriteParams?: string;
+    /** System Tag used in FUXA Server, example device status connection */
+    sysType: TagSystemType;
+    /** Description */
+    description?: string;
 
     constructor(_id: string) {
         this.id = _id;
-        this.daq = new TagDaq(false, true, 60);
+        this.daq = new TagDaq(false, false, 60, false);
     }
 
     static descriptor = {
@@ -82,9 +115,15 @@ export class Tag {
             enabled: 'Daq enabled storage',
             interval: 'min storage interval (without change value)'
         },
+        format: 'Number of digits to appear after the decimal point'
     };
 }
 
+export interface TagDevice extends Tag {
+    deviceId?: string;
+    deviceName?: string;
+    deviceType?: DeviceType;
+}
 export class TagDaq {
     /** DAQ data acquisition is enabled */
     enabled: boolean;
@@ -92,11 +131,14 @@ export class TagDaq {
     interval: number;
     /** Save if the value was changed, the check is in device polling interval */
     changed: boolean;
+    /** Restore withe the last saved value on start device */
+    restored = false;
 
-    constructor(_enabled: boolean, _changed: boolean, _interval: number) {
+    constructor(_enabled: boolean, _changed: boolean, _interval: number, _restored?: boolean) {
         this.enabled = _enabled;
         this.changed = _changed;
         this.interval = _interval;
+        this.restored = _restored;
     }
 }
 
@@ -125,6 +167,10 @@ export class DeviceNetProperty {
     method: string;
     /** Data format flag used for WebAPI (CSV/JSON) */
     format: string;
+    /** Connection option used for Modbus RTU/TCP */
+    connectionOption: string;
+    /** Delay used for Modbus RTU/TCP delay between frame*/
+    delay: number = 10;
 
     static descriptor = {
         address: 'Device address (IP)',
@@ -155,6 +201,9 @@ export class DeviceSecurity {
     password: string;
     clientId: string;
     grant_type: string;
+    certificateFileName: string;
+    privateKeyFileName: string;
+    caCertificateFileName: string;
 }
 
 export enum DeviceType {
@@ -167,7 +216,8 @@ export enum DeviceType {
     WebAPI = 'WebAPI',
     MQTTclient = 'MQTTclient',
     internal = 'internal',
-    EthernetIP = 'EthernetIP'
+    EthernetIP = 'EthernetIP',
+    ODBC = 'ODBC'
     // Template: 'template'
 }
 
@@ -189,16 +239,28 @@ export enum ModbusTagType {
     UInt32 = 'UInt32',
     Float32 = 'Float32',
     Float64 = 'Float64',
+    Int64 = 'Int64',
     Int16LE = 'Int16LE',
     UInt16LE = 'UInt16LE',
     Int32LE = 'Int32LE',
     UInt32LE = 'UInt32LE',
     Float32LE = 'Float32LE',
     Float64LE = 'Float64LE',
+    Int64LE = 'Int64LE',
     Float32MLE = 'Float32MLE',
     Int32MLE = 'Int32MLE',
     UInt32MLE = 'UInt32MLE'
     // String = 'String'
+}
+
+export enum ModbusOptionType {
+    SerialPort = 'SerialPort',
+    RTUBufferedPort = 'RTUBufferedPort',
+    AsciiPort = 'AsciiPort',
+    TcpPort = 'TcpPort',
+    UdpPort = 'UdpPort',
+    TcpRTUBufferedPort = 'TcpRTUBufferedPort',
+    TelnetPort = 'TelnetPort'
 }
 
 export enum MessageSecurityMode {
@@ -463,15 +525,16 @@ export class DevicesUtils {
         tag.memaddress = items[6].replace(new RegExp(DevicesUtils.columnMaske, 'g'), DevicesUtils.columnDelimiter);
         tag.address = items[7].replace(new RegExp(DevicesUtils.columnMaske, 'g'), DevicesUtils.columnDelimiter);
         tag.divisor = parseInt(items[8]) || 1;
-        tag.options = items[9].replace(new RegExp(DevicesUtils.columnMaske, 'g'), DevicesUtils.columnDelimiter);
+        tag.init = items[9];
+        tag.format = items[10] ? parseInt(items[10]) : null;
+        tag.options = items[11].replace(new RegExp(DevicesUtils.columnMaske, 'g'), DevicesUtils.columnDelimiter);
         if (tag.options && Utils.isJson(tag.options)) {
             tag.options = JSON.parse(tag.options);
         }
-        tag.init = items[10];
         tag.daq = <TagDaq> {
-            enabled: items[11] === 'true' ? true : false,
+            enabled:  Utils.Boolify(items[12]) ? true : false,
             changed: true,
-            interval: parseInt(items[12]) || 60
+            interval: parseInt(items[13]) || 60
         };
         return { tag, deviceId };
     }
@@ -498,4 +561,25 @@ export enum ServerTagType {
     number = 'number',
     boolean = 'boolean',
     string = 'string'
+}
+
+
+export class TagScale {
+    mode: TagScaleModeType;
+    rawLow: number;
+    rawHigh: number;
+    scaledLow: number;
+    scaledHigh: number;
+    dateTimeFormat: string;
+}
+
+export enum TagScaleModeType {
+    undefined = 'device.tag-scale-mode-undefined',
+    linear = 'device.tag-scale-mode-linear',
+    convertDateTime = 'device.tag-convert-datetime',
+    convertTickTime = 'device.tag-convert-ticktime',
+}
+
+export enum TagSystemType {
+    deviceConnectionStatus = 1,
 }

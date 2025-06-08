@@ -1,6 +1,6 @@
 
 import { Injectable, Output, EventEmitter } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, Subject, firstValueFrom } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { ProjectData, ProjectDataCmdType, UploadFile } from '../_models/project';
@@ -9,9 +9,9 @@ import { Chart } from '../_models/chart';
 import { Graph } from '../_models/graph';
 import { Alarm, AlarmQuery } from '../_models/alarm';
 import { Notification } from '../_models/notification';
-import { Script, ScriptMode } from '../_models/script';
+import { Script } from '../_models/script';
 import { Text } from '../_models/text';
-import { Device, DeviceType, DeviceNetProperty, DEVICE_PREFIX, DevicesUtils, Tag } from '../_models/device';
+import { Device, DeviceType, DeviceNetProperty, DEVICE_PREFIX, DevicesUtils, Tag, FuxaServer, TagSystemType, TAG_PREFIX, ServerTagType, TagDevice } from '../_models/device';
 import { ToastrService } from 'ngx-toastr';
 import { TranslateService } from '@ngx-translate/core';
 import { ResourceStorageService } from './rcgi/resource-storage.service';
@@ -23,7 +23,6 @@ import { Utils } from '../_helpers/utils';
 
 import * as FileSaver from 'file-saver';
 import { Report } from '../_models/report';
-import { ScriptService } from './script.service';
 
 @Injectable()
 export class ProjectService {
@@ -36,7 +35,6 @@ export class ProjectService {
 
     public serverSettings: ServerSettings;
     private storage: ResourceStorageService;
-    public intervals: any [] = [];
 
     private projectOld = '';
     private ready = false;
@@ -44,7 +42,6 @@ export class ProjectService {
     constructor(private resewbApiService: ResWebApiService,
         private resDemoService: ResDemoService,
         private resClientService: ResClientService,
-        private scriptService: ScriptService,
         private appService: AppService,
         private translateService: TranslateService,
         private toastr: ToastrService) {
@@ -134,13 +131,15 @@ export class ProjectService {
     /**
      * Save Project
      */
-    save(): boolean {
+    save(skipNotification = false): Subject<boolean> {
         // check project change don't work some svg object change the order and this to check isn't easy...boooo
+        const subject = new Subject<boolean>();
         this.storage.setServerProject(this.projectData).subscribe(result => {
             this.load();
-            var msg = '';
-            this.translateService.get('msg.project-save-success').subscribe((txt: string) => { msg = txt; });
-            this.toastr.success(msg);
+            if (!skipNotification) {
+                this.notifySuccessMessage('msg.project-save-success');
+            }
+            subject.next(true);
         }, err => {
             console.error(err);
             var msg = '';
@@ -150,8 +149,9 @@ export class ProjectService {
                 closeButton: true,
                 disableTimeOut: true
             });
+            subject.next(false);
         });
-        return true;
+        return subject;
     }
 
     saveAs() {
@@ -291,7 +291,7 @@ export class ProjectService {
      * Save to Server
      * @param view
      */
-    setView(view: View) {
+    setView(view: View, notify = false) {
         let v = null;
         for (let i = 0; i < this.projectData.hmi.views.length; i++) {
             if (this.projectData.hmi.views[i].id === view.id) {
@@ -304,6 +304,9 @@ export class ProjectService {
             this.projectData.hmi.views.push(view);
         }
         this.storage.setServerProjectData(ProjectDataCmdType.SetView, view, this.projectData).subscribe(result => {
+            if (notify) {
+                this.notifySuccessMessage('msg.project-save-success');
+            }
         }, err => {
             console.error(err);
             this.notifySaveError(err);
@@ -319,11 +322,21 @@ export class ProjectService {
     }
 
 
-    getViewId(name) {
+    getViewId(name: string) {
         let views = this.getViews();
         for (var i = 0; i < views.length; i++) {
             if (views[i].name === name) {
                 return views[i].id;
+            }
+        }
+        return null;
+    }
+
+    getViewFromId(id: string) {
+        let views = this.getViews();
+        for (var i = 0; i < views.length; i++) {
+            if (views[i].id === id) {
+                return views[i];
             }
         }
         return null;
@@ -604,28 +617,6 @@ export class ProjectService {
     }
     //#endregion
 
-    initScheduledScripts() {
-        /* init all schedules from scripts with mode client */
-        if (this.projectData.scripts) {
-            this.projectData.scripts.forEach((script: Script) => {
-                if (script.mode == ScriptMode.CLIENT && script.scheduling && script.scheduling.interval > 0) {
-                    this.intervals.push(setInterval(
-                        () => {
-                            this.scriptService.runScript(script).subscribe(() => { });
-                        }, script.scheduling.interval * 1000));
-                }
-            });
-        }
-    }
-
-    clearScheduledScripts() {
-        /* clear all intervals from scripts with client mode */
-        this.intervals.forEach(interval => {clearInterval(interval);});
-        this.intervals = [];
-    }
-
-
-
     //#region Scripts resource
     /**
      * get scripts
@@ -867,24 +858,34 @@ export class ProjectService {
     }
     //#endregion
 
+    async getTagsValues(tagsIds: string[]): Promise<any[]> {
+        let values = await firstValueFrom(this.storage.getTagsValues(tagsIds));
+        return values;
+    }
+
+    async runSysFunctionSync(functionName: string, params: any): Promise<any> {
+        let values = await firstValueFrom(this.storage.runSysFunction(functionName, params));
+        return values;
+    }
+
     /**
      * Set Project data and save resource to backend
      * Used from open and upload JSON Project file
      * @param prj project data to save
      */
-    setProject(prj: ProjectData, notify?: boolean) {
+    setProject(prj: ProjectData, skipNotification = false) {
         this.projectData = prj;
         if (this.appService.isClientApp) {
             this.projectData = ResourceStorageService.defileProject(prj);
         }
-        this.save();
+        this.save(skipNotification);
     }
 
     setNewProject() {
         this.projectData = new ProjectData();
         let server = new Device(Utils.getGUID(DEVICE_PREFIX));
-        server.name = 'FUXA';
-        server.id = '0';
+        server.name = FuxaServer.name;
+        server.id = FuxaServer.id;
         server.type = DeviceType.FuxaServer;
         server.enabled = true;
         server.property = new DeviceNetProperty();
@@ -893,7 +894,7 @@ export class ProjectService {
         } else {
             delete this.projectData.server;
         }
-        this.save();
+        this.save(true);
     }
 
     getProject() {
@@ -908,9 +909,9 @@ export class ProjectService {
         return (this.projectData) ? this.projectData.server : null;
     }
 
-    // getDevices(): any {
-    //     return (this.projectData) ? this.projectData.devices : {};
-    // }
+    getServerDevices(): Device[] {
+        return <Device[]>Object.values(this.getDevices()).filter((device: Device) => device.type !== DeviceType.internal);
+    }
 
     getDevices(): any {
         let result = {};
@@ -946,14 +947,59 @@ export class ProjectService {
         }
     }
 
-    getTagFromId(tagId: string): Tag {
+    getTagFromId(tagId: string, withDeviceRef?: boolean): Tag | TagDevice {
         let devices = <Device[]>Object.values(this.projectData.devices);
         for (let i = 0; i < devices.length; i++) {
             if (devices[i].tags[tagId]) {
+                const tag = devices[i].tags[tagId];
+                if (withDeviceRef) {
+                    let tagDevice = <TagDevice>Utils.clone(tag);
+                    tagDevice.deviceId = devices[i].id;
+                    tagDevice.deviceName = devices[i].name;
+                    tagDevice.deviceType = devices[i].type;
+                    return tagDevice;
+                }
                 return devices[i].tags[tagId];
             }
         }
         return null;
+    }
+
+    getTagIdFromName(tagName: string, deviceName?: string): string {
+        let devices = <Device[]>Object.values(this.projectData.devices);
+        for (let i = 0; i < devices.length; i++) {
+            if (!deviceName || devices[i].name === deviceName) {
+                let result = <Tag>Object.values(devices[i].tags).find((tag: Tag) => tag.name === tagName);
+                if (result) {
+                    return result.id;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Check to add or remove system Tags, example connection status to add in device FUXA server
+     */
+    checkSystemTags() {
+        let devices = Object.values(this.projectData.devices).filter((device: Device) => device.id !== FuxaServer.id);
+        let fuxaServer = <Device>this.projectData.devices[FuxaServer.id];
+        if (fuxaServer) {
+            devices.forEach((device: Device) => {
+                if (!Object.values(fuxaServer.tags).find((tag: Tag) => tag.sysType === TagSystemType.deviceConnectionStatus && tag.memaddress === device.id)) {
+                    let tag = new Tag(Utils.getGUID(TAG_PREFIX));
+                    tag.name = device.name + ' Connection Status';
+                    tag.label = device.name + ' Connection Status';
+                    tag.type = ServerTagType.number;
+                    tag.memaddress = device.id;
+                    tag.sysType = TagSystemType.deviceConnectionStatus;
+                    tag.init = tag.value = '';
+                    fuxaServer.tags[tag.id] = tag;
+                }
+            });
+            this.setDeviceTags(fuxaServer);
+        }
+        return this.getDevices();
     }
 
     /**
@@ -1057,6 +1103,12 @@ export class ProjectService {
             }
         }
         return obj;
+    }
+
+    private notifySuccessMessage(msgKey: string) {
+        var msg = '';
+        this.translateService.get(msgKey).subscribe((txt: string) => { msg = txt; });
+        this.toastr.success(msg);
     }
 }
 

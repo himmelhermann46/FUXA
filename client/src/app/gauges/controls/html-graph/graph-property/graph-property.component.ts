@@ -1,22 +1,23 @@
 import { Component, EventEmitter, OnInit, Input, Output, OnDestroy } from '@angular/core';
-import { MatDialog } from '@angular/material/dialog';
-import { FormControl } from '@angular/forms';
+import { MatLegacyDialog as MatDialog } from '@angular/material/legacy-dialog';
+import { UntypedFormControl } from '@angular/forms';
 import { takeUntil } from 'rxjs/operators';
 import { Subject, ReplaySubject } from 'rxjs';
 
 import { TranslateService } from '@ngx-translate/core';
 
 import { Graph, GraphType, GraphRangeType, GraphBarXType, GraphDateGroupType } from '../../../../_models/graph';
-import { GraphConfigComponent } from '../../../../editor/graph-config/graph-config.component';
+import { GraphConfigComponent, IDataGraphResult } from '../../../../editor/graph-config/graph-config.component';
 import { GraphBarComponent } from '../graph-bar/graph-bar.component';
 import { GraphOptions, GraphThemeType } from '../graph-base/graph-base.component';
 import { GaugeGraphProperty } from '../../../../_models/hmi';
 import { Utils } from '../../../../_helpers/utils';
+import { GraphPieComponent } from '../graph-pie/graph-pie.component';
 
 @Component({
     selector: 'app-graph-property',
     templateUrl: './graph-property.component.html',
-    styleUrls: ['./graph-property.component.css']
+    styleUrls: ['./graph-property.component.scss']
 })
 export class GraphPropertyComponent implements OnInit, OnDestroy {
 
@@ -35,26 +36,19 @@ export class GraphPropertyComponent implements OnInit, OnDestroy {
     dateGroupType = GraphDateGroupType;
     dataXType = Utils.getEnumKey(GraphBarXType, GraphBarXType.date);
 
-    graphCtrl: FormControl = new FormControl();
-    graphFilterCtrl: FormControl = new FormControl();
+    graphCtrl: UntypedFormControl = new UntypedFormControl();
+    graphFilterCtrl: UntypedFormControl = new UntypedFormControl();
     public filteredGraph: ReplaySubject<Graph[]> = new ReplaySubject<Graph[]>(1);
 
     private _onDestroy = new Subject<void>();
 
-    constructor(
-        public dialog: MatDialog,
-        private translateService: TranslateService) {
-        }
+    constructor(public dialog: MatDialog,
+                private translateService: TranslateService) {
+    }
 
     ngOnInit() {
+        this.checkInitProperty();
         if (this.data.settings.type.endsWith('bar')) {
-            this.graphType = GraphType.bar;
-            if (!this.data.settings.property) {
-                this.data.settings.property = <GaugeGraphProperty>{ id: null, type: null, options: null };
-            }
-            if (!this.data.settings.property.options) {
-                this.data.settings.property.options = GraphBarComponent.DefaultOptions();
-            }
             Object.keys(this.lastRangeType).forEach(key => {
                 this.translateService.get(this.lastRangeType[key]).subscribe((txt: string) => { this.lastRangeType[key] = txt; });
             });
@@ -72,16 +66,12 @@ export class GraphPropertyComponent implements OnInit, OnDestroy {
 
     private _reload() {
         // check default value, undefined if new
+        this.checkInitProperty();
         if (this.data.settings.type.endsWith('bar')) {
-            this.graphType = GraphType.bar;
-            if (!this.data.settings.property) {
-                this.data.settings.property = <GaugeGraphProperty>{ id: null, type: null, options: null };
-            }
-            if (!this.data.settings.property.options) {
-                this.data.settings.property.options = GraphBarComponent.DefaultOptions();
-            }
+            this.options = Utils.mergeDeep(GraphBarComponent.DefaultOptions(), this.data.settings.property.options);
+        } else if (this.data.settings.type.endsWith('pie')) {
+            this.options = Utils.mergeDeep(GraphPieComponent.DefaultOptions(), this.data.settings.property.options);
         }
-        this.options = this.data.settings.property.options;
         // load graphs list to choise
         this.loadGraphs();
         let graph = null;
@@ -91,36 +81,75 @@ export class GraphPropertyComponent implements OnInit, OnDestroy {
         this.graphCtrl.setValue(graph);
     }
 
+    private checkInitProperty() {
+        if (this.data.settings.type.endsWith('bar')) {
+            this.graphType = GraphType.bar;
+            if (!this.data.settings.property) {
+                this.data.settings.property = <GaugeGraphProperty>{ id: null, type: null, options: null };
+            }
+            if (!this.data.settings.property.options) {
+                this.data.settings.property.options = GraphBarComponent.DefaultOptions();
+            }
+        } else if (this.data.settings.type.endsWith('pie')) {
+            this.graphType = GraphType.pie;
+            if (!this.data.settings.property) {
+                this.data.settings.property = <GaugeGraphProperty>{ id: null, type: null, options: null };
+            }
+            if (!this.data.settings.property.options) {
+                this.data.settings.property.options = GraphPieComponent.DefaultOptions();
+            }
+        }
+    }
+
     onGraphChanged() {
         this.data.settings.property = <GaugeGraphProperty>{ id: null, type: null, options: null };
         if (this.graphCtrl.value) {
             this.data.settings.property.id = this.graphCtrl.value.id;
             this.data.settings.property.type = this.graphCtrl.value.type;
-            if (!this.isDateTime(this.graphCtrl.value)) {
-                this.options.lastRange = null;
-                this.options.dateGroup = null;
-            } else {
-                this.options.offline = true;
-                this.options.lastRange = <GraphRangeType>Utils.getEnumKey(GraphRangeType, GraphRangeType.last1d);
-                this.options.dateGroup = <GraphDateGroupType>Utils.getEnumKey(GraphDateGroupType, GraphDateGroupType.hours);
+            if (this.data.settings.type.endsWith('bar')) {
+                if (!this.isDateTime(this.graphCtrl.value)) {
+                    this.options.lastRange = null;
+                    this.options.dateGroup = null;
+                } else {
+                    this.options.offline = true;
+                    this.options.lastRange = <GraphRangeType>Utils.getEnumKey(GraphRangeType, GraphRangeType.last1d);
+                    this.options.dateGroup = <GraphDateGroupType>Utils.getEnumKey(GraphDateGroupType, GraphDateGroupType.hours);
+                }
             }
         }
-        if (this.options.theme === this.themeType.light) {
-            this.options.yAxes.fontColor = '#666';
-            this.options.xAxes.fontColor = '#666';
-            this.options.gridLinesColor = 'rgba(0, 0, 0, 0.1)';
-            this.options.legend.labels.fontColor = '#666';
-            this.options.title.fontColor = '#666';
-        } else if (this.options.theme === this.themeType.dark) {
-            this.options.yAxes.fontColor = '#fff';
-            this.options.xAxes.fontColor = '#fff';
-            this.options.gridLinesColor = 'rgba(0, 0, 0, 0.1)';
-            this.options.legend.labels.fontColor = '#fff';
-            this.options.title.fontColor = '#fff';
-
+        if (this.data.settings.type.endsWith('bar')) {
+            this.options.scales['y'].grid.color = this.options.gridLinesColor;
+            this.options.scales['y'].grid.display = this.options.gridLinesShow;
+            this.options.scales['x'].grid.color = this.options.gridLinesColor;
+            this.options.scales['x'].grid.display = this.options.gridLinesShow;
         }
         this.data.settings.property.options = JSON.parse(JSON.stringify(this.options));
         this.onPropChanged.emit(this.data.settings);
+    }
+
+    onGraphThemaChanged() {
+        const yScale = this.options.scales['y'];
+        const xScale = this.options.scales['x'];
+        if (this.options.theme === this.themeType.light) {
+            yScale.ticks.color = '#666';
+            xScale.ticks.color = '#666';
+            this.options.plugins.legend.labels.color = '#666';
+            this.options.plugins.datalabels.color = '#666';
+            this.options.plugins.title.color = '#666';
+            this.options.gridLinesColor = 'rgba(0, 0, 0, 0.2)';
+            this.options.backgroundColor = null;
+        } else if (this.options.theme === this.themeType.dark) {
+            yScale.ticks.color = '#fff';
+            xScale.ticks.color = '#fff';
+            this.options.plugins.legend.labels.color = '#fff';
+            this.options.plugins.datalabels.color = '#fff';
+            this.options.plugins.title.color = '#fff';
+            this.options.gridLinesColor = '#808080';
+            this.options.backgroundColor = '242424';
+        } else if (this.options.theme === this.themeType.customise) {
+            this.options.backgroundColor = null;
+        }
+        this.onGraphChanged();
     }
 
     onEditNewGraph() {
@@ -129,10 +158,14 @@ export class GraphPropertyComponent implements OnInit, OnDestroy {
             minWidth: '1090px', width: '1090px',
             data: { type: (this.graphType === GraphType.bar) ? 'bar' : 'pie' }
         });
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result: IDataGraphResult) => {
             if (result) {
-                this.data.graphs = result;
+                this.data.graphs = result.graphs;
                 this.loadGraphs();
+                if (result.selected) {
+                    this.graphCtrl.setValue(result.selected);
+                }
+                this.onGraphChanged();
             }
         });
     }

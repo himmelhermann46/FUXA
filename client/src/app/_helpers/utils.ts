@@ -14,6 +14,18 @@ export class Utils {
 
     static lineColor = ['#4484ef', '#ef0909', '#00b050', '#ffd04a', '#7030a0', '#a5a5a5', '#c0504d', '#000000'];
 
+    static svgTagToType = ['rect', 'line', 'path', 'circle', 'ellipse', 'text'];
+
+    static walkTree(elem, cbFn) {
+        if (elem && elem.nodeType == 1) {
+            cbFn(elem);
+            var i = elem.childNodes.length;
+            while (i--) {
+                this.walkTree(elem.childNodes.item(i), cbFn);
+            }
+        }
+    }
+
     static searchTreeStartWith(element, matchingStart) {
         if (element.id.startsWith(matchingStart)) {
             return element;
@@ -26,6 +38,93 @@ export class Utils {
             return result;
         }
         return null;
+    }
+
+    static searchTreeTagName(element, tagMatching: string) {
+        if (element.tagName === tagMatching) {
+            return element;
+        }
+        if (element.children != null) {
+            var i;
+            var result = null;
+            for (i = 0; result == null && i < element.children.length; i++) {
+                result = Utils.searchTreeTagName(element.children[i], tagMatching);
+            }
+            return result;
+        }
+        return null;
+    }
+
+    static findElementByIdRecursive(root: HTMLElement, id: string): HTMLElement | null {
+        if (!root) {
+          return null;
+        }
+        if (root.id === id) {
+          return root;
+        }
+        for (let i = 0; i < root.children.length; i++) {
+          const child = root.children[i] as HTMLElement;
+          const foundElement = this.findElementByIdRecursive(child, id);
+          if (foundElement) {
+            return foundElement;
+          }
+        }
+        return null;
+    }
+
+    static searchValuesByAttribute(jsonData: any, attributeName: string) {
+        const result: string[] = [];
+        function search(jsonData: any): void {
+            if (Array.isArray(jsonData)) {
+                for (const item of jsonData) {
+                  search(item);
+                }
+            } else if (typeof jsonData === 'object' && jsonData !== null) {
+                if (jsonData.hasOwnProperty(attributeName)) {
+                    result.push(jsonData[attributeName]);
+                }
+                for (const key in jsonData) {
+                  search(jsonData[key]);
+                }
+              }
+        }
+        search(jsonData);
+        return result;
+    }
+
+    static changeAttributeValue(jsonData: any, attributeName: string, srcValue: any, destValue: any) {
+        function change(jsonData: any): void {
+            if (Array.isArray(jsonData)) {
+                for (const item of jsonData) {
+                    change(item);
+                }
+            } else if (typeof jsonData === 'object' && jsonData !== null) {
+                if (jsonData.hasOwnProperty(attributeName) && jsonData[attributeName] === srcValue) {
+                    jsonData[attributeName] = destValue;
+                }
+                for (const key in jsonData) {
+                    change(jsonData[key]);
+                }
+              }
+        }
+        change(jsonData);
+    }
+
+    static getInTreeIdAndType(element: Element): any[] {
+        let type = element.getAttribute('type');
+        if (!type && Utils.svgTagToType.includes(element.tagName.toLowerCase())) {
+            type = 'svg-ext-shapes-' + element.tagName.toLowerCase();
+        }
+        let id = element.getAttribute('id');
+        let result = [];
+        if (id && type) {
+            result = [{ id: id, type: type }];
+        }
+        for (var i = 0; i < element.children.length; i++) {
+            const idsAndTypes = Utils.getInTreeIdAndType(element.children[i]);
+            result = [...result, ...idsAndTypes];
+        }
+        return result;
     }
 
     static isNullOrUndefined(ele) {
@@ -152,6 +251,22 @@ export class Utils {
         return value;
     }
 
+    /**
+     * check to convert to float or to number
+     * @param value
+     */
+    static toFloatOrNumber(value: any) {
+        let result = parseFloat(value);
+        if (Utils.isNullOrUndefined(result)) {
+            // maybe boolean
+            result = Number(value);
+        } else {
+            result = parseFloat(result.toFixed(5));
+        }
+        return result;
+    }
+
+
     static formatValue(value: string, format: string): string {
         try {
             if (Utils.isNumeric(value)) {
@@ -191,7 +306,7 @@ export class Utils {
         var dddd = ['\x02', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         var ddd = ['\x03', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-        let ii = (i, len?) => { var s = i + ''; len = len || 2; while (s.length < len) {s = '0' + s;} return s; };
+        let ii = (i, len?) => { var s = i + ''; len = len || 2; while (s.length < len) { s = '0' + s; } return s; };
 
         var y = utc ? date.getUTCFullYear() : date.getFullYear();
         format = format.replace(/(^|[^\\])yyyy+/g, '$1' + y);
@@ -243,8 +358,7 @@ export class Utils {
 
         var tz = -date.getTimezoneOffset();
         var K = utc || !tz ? 'Z' : tz > 0 ? '+' : '-';
-        if (!utc)
-        {
+        if (!utc) {
             tz = Math.abs(tz);
             var tzHrs = Math.floor(tz / 60);
             var tzMin = tz % 60;
@@ -266,7 +380,7 @@ export class Utils {
 
     static findBitPosition(n) {
         let result = [];
-        for (let i = 0 ; i < 32; i++) {
+        for (let i = 0; i < 32; i++) {
             if (n & (0x01 << i)) {
                 result.push(i);
             }
@@ -283,23 +397,184 @@ export class Utils {
     static assign = (target: { [key: string]: any }, ...sources: object[]) => {
         sources.forEach((source) => Object.keys(source).forEach((key) => {
             target[key] = source[key as keyof Object];
-          }));
+        }));
         return target;
     };
 
     static clone = (obj) => JSON.parse(JSON.stringify(obj));
 
-    static convertArrayToObject  = (array, value) => array.reduce((accumulator, key) => ({...accumulator, [key]: value}), {});
+    static convertArrayToObject = (array, value) => array.reduce((accumulator, key) => ({ ...accumulator, [key]: value }), {});
 
     static resizeView = (selector) => {
         document.querySelectorAll(selector).forEach((scaled: any) => {
             let parent = scaled.parentNode,
-            ratioWidth = (parent.offsetWidth / scaled.offsetWidth),
-            ratioHeight = (parent.offsetHeight / scaled.offsetHeight);
+                ratioWidth = (parent.offsetWidth / scaled.offsetWidth),
+                ratioHeight = (parent.offsetHeight / scaled.offsetHeight);
             scaled.style.transform = 'scale(' + Math.min(ratioWidth, ratioHeight) + ')';
             scaled.style.transformOrigin = 'top left';
         });
-      };
+    };
+
+    static resizeViewExt = (selector: string, parentId: string, resize?: 'contain' | 'stretch' | 'none') => {
+        const parentElement = document.getElementById(parentId) as HTMLElement;
+        if (!parentElement) {
+            console.error(`resizeViewExt -> Parent element with ID '${parentId}' not found.`);
+            return;
+        }
+        const parentRect: DOMRect = parentElement.getBoundingClientRect();
+        const resizeType = resize ?? 'none';
+        parentElement.querySelectorAll(selector).forEach((scaled: any) => {
+            const ratioWidth = (parentRect?.width / scaled.offsetWidth);
+            const ratioHeight = (parentRect?.height / scaled.offsetHeight);
+            if (resizeType === 'contain') {
+                scaled.style.transform = 'scale(' + Math.min(ratioWidth, ratioHeight) + ')';
+            } else if (resizeType === 'stretch') {
+                scaled.style.transform = 'scale(' + ratioWidth + ', ' + ratioHeight + ')';
+            } else if (resizeType === 'none') {
+                scaled.style.transform = 'scale(1)';
+            }
+            scaled.style.transformOrigin = 'top left';
+        });
+    };
+
+    static resizeViewRev = (original: string | HTMLElement, destination: string | HTMLElement, resize?: 'contain' | 'stretch' | 'none') => {
+        function transform(origRect: HTMLElement, destRect: DOMRect, resizeType: 'contain' | 'stretch' | 'none') {
+            const ratioWidth = (destRect?.width / origRect.clientWidth);
+            const ratioHeight = (destRect?.height / origRect.clientHeight);
+            if (resizeType === 'contain') {
+                origRect.style.transform = 'scale(' + Math.min(ratioWidth, ratioHeight) + ')';
+                origRect.parentElement.style.margin = 'unset';
+            } else if (resizeType === 'stretch') {
+                origRect.style.transform = 'scale(' + ratioWidth + ', ' + ratioHeight + ')';
+                origRect.parentElement.style.margin = 'unset';
+            } else if (resizeType === 'none') {
+                origRect.style.transform = 'scale(1)';
+            }
+            origRect.style.top = 'unset';
+            origRect.style.left = 'unset';
+            origRect.style.transformOrigin = 'top left';
+        };
+
+        const parentElement = typeof destination === 'string' ? document.getElementById(destination) as HTMLElement : destination;
+        if (!parentElement) {
+            console.error(`resizeViewExt -> Parent element with ID '${destination}' not found.`);
+            return;
+        }
+        const parentRect: DOMRect = parentElement.getBoundingClientRect();
+        if (typeof original === 'string') {
+            parentElement.querySelectorAll(original).forEach((scaled: any) => {
+                transform(scaled, parentRect, resize ?? 'none');
+            });
+        } else if (!!original) {
+            transform(original, parentRect, resize ?? 'none');
+        }
+    };
+
+    /** Merge of array of object, the next overwrite the last */
+    static mergeDeep(...objArray) {
+        const result = {};
+        objArray.forEach((obj) => {
+            if (obj) {
+                Object.keys(obj).forEach((key) => {
+                    if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+                        result[key] = Utils.mergeDeep(result[key], obj[key]);
+                    } else if (Array.isArray(obj[key])) {
+                        if (!Array.isArray(result[key])) {
+                            result[key] = [];
+                        }
+                        result[key] = result[key].concat(obj[key]);
+                    } else {
+                        result[key] = obj[key];
+                    }
+                });
+            }
+        });
+        return result;
+    };
+
+    static copyToClipboard(text) {
+        // Create a temporary textarea element
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        // Make the textarea hidden
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        // Append the textarea to the document
+        document.body.appendChild(textarea);
+        // Select and copy the text from the textarea
+        textarea.select();
+        document.execCommand('copy');
+        // Remove the textarea from the document
+        document.body.removeChild(textarea);
+    }
+
+    static millisecondsToTime(milliseconds: number): { hours: number; minutes: number; seconds: number; milliseconds: number } {
+        const hours = Math.floor(milliseconds / 3600000);
+        milliseconds %= 3600000;
+
+        const minutes = Math.floor(milliseconds / 60000);
+        milliseconds %= 60000;
+
+        const seconds = Math.floor(milliseconds / 1000); // 1 secondo = 1000 millisecondi
+        milliseconds %= 1000;
+
+        return { hours, minutes, seconds, milliseconds };
+    }
+
+    static timeToString(time: { hours: number; minutes: number; seconds: number; milliseconds: number }, format: number): string {
+        function formatNumberWithLeadingZeros(number, length) {
+            return number.toString().padStart(length, '0');
+        }
+        let result = `${formatNumberWithLeadingZeros(time.hours, 2)}:${formatNumberWithLeadingZeros(time.minutes, 2)}`;
+        if (format) {
+            result += `:${formatNumberWithLeadingZeros(time.seconds, 2)}`;
+            if (format >= 1000) {
+                result += `.${formatNumberWithLeadingZeros(time.milliseconds, 3)}`;
+            }
+        }
+        return result;
+    }
+
+    static millisecondsToTimeString(milliseconds: number, format?: number): string {
+        return Utils.timeToString(Utils.millisecondsToTime(milliseconds), format);
+    }
+
+    static millisecondsToDateString(milliseconds: number, format?: number): string {
+        const dateObject = new Date(milliseconds);
+        const year = dateObject.getFullYear();
+        const month = (dateObject.getMonth() + 1).toString().padStart(2, '0');
+        const day = dateObject.getDate().toString().padStart(2, '0');
+        const hours = dateObject.getHours().toString().padStart(2, '0');
+        const minutes = dateObject.getMinutes().toString().padStart(2, '0');
+        const seconds = dateObject.getSeconds().toString().padStart(2, '0');
+        const milli = dateObject.getMilliseconds().toString().padStart(3, '0');
+        let dateString = `${year}-${month}-${day}`;
+        if (format > 0) {
+            dateString += `T${hours}:${minutes}`;
+            if (format > 1) {
+                dateString += `:${seconds}`;
+                if (format > 100) {
+                    dateString += `.${milli}`;
+                }
+            }
+        }
+        return dateString;
+    }
+
+    static getTimeDifferenceInSeconds(timestamp: number): number {
+        const currentTimestamp = Date.now();
+        const differenceInMilliseconds = currentTimestamp - timestamp;
+        return Math.floor(differenceInMilliseconds / 1000);
+    }
+
+    static isValidUrl(url: string): boolean {
+        try {
+            new URL(url);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
 }
 
 @Pipe({
@@ -322,10 +597,10 @@ export class EnumToArrayPipe implements PipeTransform {
 
 @Pipe({ name: 'keepHtml', pure: false })
 export class EscapeHtmlPipe implements PipeTransform {
-  constructor(private sanitizer: DomSanitizer) {
-  }
+    constructor(private sanitizer: DomSanitizer) {
+    }
 
-  transform(content) {
-    return this.sanitizer.bypassSecurityTrustHtml(content);
-  }
+    transform(content) {
+        return this.sanitizer.bypassSecurityTrustHtml(content);
+    }
 }

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component } from '@angular/core';
 import { GaugeBaseComponent } from '../../gauge-base/gauge-base.component';
 import { GaugeSettings, Variable, GaugeStatus, GaugeAction, Event, GaugeActionsType } from '../../../_models/hmi';
 import { Utils } from '../../../_helpers/utils';
@@ -13,7 +13,6 @@ declare var SVG: any;
 })
 export class HtmlSelectComponent extends GaugeBaseComponent {
 
-    @Input() data: any;
 
     static TypeTag = 'svg-ext-html_select';
     static LabelTag = 'HtmlSelect';
@@ -26,6 +25,7 @@ export class HtmlSelectComponent extends GaugeBaseComponent {
     }
 
     static getSignals(pro: any) {
+
         let res: string[] = [];
         if (pro.variableId) {
             res.push(pro.variableId);
@@ -95,10 +95,12 @@ export class HtmlSelectComponent extends GaugeBaseComponent {
         }
     }
 
-    static initElement(ga: GaugeSettings, isview: boolean = false) {
+    static initElement(ga: GaugeSettings, isview: boolean = false): HTMLElement {
+        let select = null;
         let ele = document.getElementById(ga.id);
         if (ele) {
-            let select = Utils.searchTreeStartWith(ele, this.prefix);
+            ele?.setAttribute('data-name', ga.name);
+            select = Utils.searchTreeStartWith(ele, this.prefix);
             if (select) {
                 if (ga.property) {
                     if (ga.property.readonly) {
@@ -122,7 +124,7 @@ export class HtmlSelectComponent extends GaugeBaseComponent {
                     option.innerHTML = 'Choose...';
                     select.appendChild(option);
                 } else {
-                    ga.property.ranges.forEach(element => {
+                    ga.property?.ranges?.forEach(element => {
                         let option = document.createElement('option');
                         option.value = element.min;
                         if (element.text) {
@@ -133,6 +135,7 @@ export class HtmlSelectComponent extends GaugeBaseComponent {
                 }
             }
         }
+        return select;
     }
 
     static initElementColor(bkcolor, color, ele) {

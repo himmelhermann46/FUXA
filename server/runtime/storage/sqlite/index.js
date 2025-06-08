@@ -17,12 +17,12 @@ const db_daqmap_prefix = 'daq-map_';
 const db_daqtoken = 3600000;    // 1 hour
 const archive_folder = 'archive';
 
-function DaqNode(_settings, _log, _id) {
+function DaqNode(_settings, _log, _id, _currentStorate) {
 
     var settings = _settings;               // Application settings
     var logger = _log;                      // Application logger
     var id = _id;                           // Device id
-
+    const currentStorage = _currentStorate  // Database to set the last value (current)
     var initready = false;                  // Initilized flag 
     var mapworking = false;                 // Data mapping working flag
     var dataworking = false;                // Save data working flag
@@ -179,23 +179,32 @@ function DaqNode(_settings, _log, _id) {
      * Add Daq value of Tag/Node
      * Check if the Tag/Node is mapped otherwise first add the value to data db then check if the db is to split and to archive
      */
-    this.addDaqValues = function (tags, tagid, tagvalue) {
+    this.addDaqValues = function (tags, deviceName, deviceId) {
         if (initready) {
             if (db_daqdata) {
                 var addMapfnc = [];
                 var addDaqfnc = [];
+                var dataToRestore = [];
                 // prepare functions
                 for (var tagid in tags) {
-                    if (!tags[tagid].daq || !tags[tagid].daq.enabled) {
+                    const tag = tags[tagid];
+                    if (!tag.daq) {
                         continue;
                     }
+                    if (tag.daq.restored) {
+                        dataToRestore.push({id: tag.id, deviceId: deviceId, value: tag.value});
+                    }
+                    if (!tag.daq.enabled) {
+                        continue;
+                    }
+
                     if (!daqTagsMap[tagid]) {
                         var prop = fncGetTagProp(tagid);
                         if (prop) {
                             addMapfnc.push(_insertTagToMap(prop.id, prop.name, prop.type));
                         }
                     } else {
-                        addDaqfnc.push(_insertTagValue(daqTagsMap[tagid].mapid, tags[tagid].value));
+                        addDaqfnc.push(_insertTagValue(daqTagsMap[tagid].mapid, tag.value));
                     }
                 }
                 // check function to insert in map            
@@ -244,7 +253,7 @@ function DaqNode(_settings, _log, _id) {
                                 });
                             } else {
                                 _checkDataWorking(false);
-                            }                            
+                            }
                         }, reason => {
                             if (reason && reason.stack) {
                                 logger.error(`daqstorage.add-daq-values addDaqfnc failed! '${id}' ${reason.stack}`);
@@ -254,6 +263,9 @@ function DaqNode(_settings, _log, _id) {
                             _checkDataWorking(false);
                         });
                     }
+                }
+                if (dataToRestore.length && currentStorage) {
+                    currentStorage.setValues(dataToRestore);
                 }
             } else {
                 // some things was wrong by tokenize...try to bind the db_daqdata 
@@ -284,7 +296,7 @@ function DaqNode(_settings, _log, _id) {
             if (daqTagsMap[tagid]) {
                 var result = [];
                 // search in current db
-                    _getTagValues(db_daqdata, daqTagsMap[tagid].mapid, fromts, tots).then(function (rows) {
+                _getTagValues(db_daqdata, daqTagsMap[tagid].mapid, fromts, tots).then(function (rows) {
                     // search in archive
                     var archivefiles = _getArchiveFiles(id, fromts, tots);
                     var dbfncs = [];
@@ -409,7 +421,12 @@ function DaqNode(_settings, _log, _id) {
     function _checkToArchiveDBfile(dbfile) {
         if (dbfile.indexOf('-journal') !== -1) {
             // delete pending db journal
-            fs.unlinkSync(dbfile);
+            try {
+                fs.unlinkSync(dbfile);
+                logger.info(`daqstorage.check-to-archive-db-file '${dbfile}' pending db journal deleted!`, true);
+            } catch (e) { 
+                console.error(e);
+            }
         } else {
             _bindDaqData(dbfile).then(result => {
                 logger.info(`daqstorage.check-to-archive-db-file '${dbfile}'`, true);
@@ -424,7 +441,9 @@ function DaqNode(_settings, _log, _id) {
                             try {
                                 fs.unlinkSync(dbfile);
                                 logger.info(`daqstorage.check-to-archive-db-file '${dbfile}' database deleted!`, true);
-                            } catch (e) { }
+                            } catch (e) { 
+                                console.error(e);
+                            }
                         }
                     });
                 }).catch(function (err) {
@@ -458,7 +477,11 @@ function DaqNode(_settings, _log, _id) {
             fs.mkdirSync(archive);
         }
         var dbfilenew = path.join(archive, path.basename(dbfile, path.extname(dbfile))) + '_' + suffix + path.extname(dbfile);
-        fs.renameSync(dbfile, dbfilenew);
+        try {
+            fs.renameSync(dbfile, dbfilenew);
+        } catch (err) {
+            console.error(err);
+        }
         return dbfilenew;
     }
 
@@ -488,7 +511,12 @@ function DaqNode(_settings, _log, _id) {
     }
 
     function _resetDB(file) {
-        fs.unlinkSync(file);
+        try {
+            fs.unlinkSync(file);
+            logger.info(`daqstorage._resetDB '${file}' file of database deleted!`, true);
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     function _loadMap() {
@@ -568,12 +596,16 @@ function DaqNode(_settings, _log, _id) {
 
     function _getTagValues(db, id, fromts, tots) {
         return new Promise(function (resolve, reject) {
+            const booleanMapping = { "true": true, "false": false };
             var sql = "SELECT dt, value FROM data WHERE id = ? AND dt BETWEEN ? and ? ORDER BY dt ASC";
             db.all(sql, [id, fromts, tots], function (err, rows) {
                 if (err) {
                     console.error(err);
                     reject(err);
                 } else {
+                    for (var i = 0; i < rows.length; i++) {
+                        rows[i].value =  booleanMapping[rows[i].value] !== undefined ? booleanMapping[rows[i].value] : rows[i].value;
+                    }
                     resolve(rows);
                 }
             });
@@ -609,18 +641,25 @@ function DaqNode(_settings, _log, _id) {
 /**
  * Check and remove old data
  */
-function checkRetention(dtlimit, dbDir, callbackError) {
+function checkRetention(dtlimit, dbDir, callbackRemoved, callbackError) {
     var archiveDir = path.resolve(dbDir, archive_folder);
     if (fs.existsSync(archiveDir)) {
         var files = fs.readdirSync(archiveDir);
         files.forEach(file => {
             const fromTo = _suffixToTimestamp(file);
             if (fromTo && fromTo.from < dtlimit.getTime()) {
-                fs.unlink(path.join(archiveDir, file), (err) => {
-                    if (err && callbackError) {
-                        callbackError(`daqstorage.checkRetention remove file ${file} failed! ${err}`);
+                try {
+                    fs.unlink(path.join(archiveDir, file), (err) => {
+                        if (err && callbackError) {
+                            callbackError(`daqstorage.checkRetention remove file ${file} failed! ${err}`);
+                        }
+                    });
+                    if (callbackRemoved) {
+                        callbackRemoved(file);
                     }
-                });
+                } catch (error) {
+                    console.error(error);
+                 }
             }
         });
     }
@@ -649,8 +688,8 @@ function _suffixToTimestamp(file) {
 }
 
 module.exports = {
-    create: function (data, logger, id) {
-        return new DaqNode(data, logger, id);
+    create: function (data, logger, id, currentStorate) {
+        return new DaqNode(data, logger, id, currentStorate);
     },
     checkRetention: checkRetention
 };

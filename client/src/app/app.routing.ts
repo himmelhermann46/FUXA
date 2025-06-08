@@ -20,6 +20,7 @@ import { ReportListComponent } from './reports/report-list/report-list.component
 const appRoutes: Routes = [
     { path: '', component: HomeComponent},//, canActivate: [AuthGuard] },
     { path: 'home', component: HomeComponent},//, canActivate: [AuthGuard] },
+    { path: 'home/:viewName', component: HomeComponent},//, canActivate: [AuthGuard] },
     { path: 'editor', component: EditorComponent, canActivate: [AuthGuard]},
     { path: 'lab', component: LabComponent, canActivate: [AuthGuard] },
     { path: 'device', component: DeviceComponent, canActivate: [AuthGuard] },
@@ -38,4 +39,4 @@ const appRoutes: Routes = [
     { path: '**', redirectTo: '' }
 ];
 
-export const routing = RouterModule.forRoot(appRoutes, { relativeLinkResolution: 'legacy' });
+export const routing = RouterModule.forRoot(appRoutes, {});

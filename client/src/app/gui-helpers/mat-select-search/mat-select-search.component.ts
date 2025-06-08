@@ -5,8 +5,8 @@ import {
     ViewChild
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { MatSelect } from '@angular/material/select';
-import { MatOption } from '@angular/material/core';
+import { MatLegacySelect as MatSelect } from '@angular/material/legacy-select';
+import { MatLegacyOption as MatOption } from '@angular/material/legacy-core';
 import { Subject } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
@@ -297,14 +297,26 @@ export class MatSelectSearchComponent implements OnInit, OnDestroy, AfterViewIni
         if (this.overlayClassSet) {
             return;
         }
+
         const overlayClass = 'cdk-overlay-pane-select-search';
 
-        this.matSelect.overlayDir.attach
+        this.matSelect.openedChange
             .pipe(takeUntil(this._onDestroy))
-            .subscribe(() => {
+            .subscribe((opened: boolean) => {
+                if (opened) {
                 // note: this is hacky, but currently there is no better way to do this
-                this.searchSelectInput.nativeElement.parentElement.parentElement
-                    .parentElement.parentElement.parentElement.classList.add(overlayClass);
+                let element: HTMLElement = this.searchSelectInput.nativeElement;
+                let overlayElement: HTMLElement;
+                while (element = element.parentElement) {
+                    if (element.classList.contains('cdk-overlay-pane')) {
+                    overlayElement = element;
+                    break;
+                    }
+                }
+                if (overlayElement) {
+                    overlayElement.classList.add(overlayClass);
+                }
+                }
             });
 
         this.overlayClassSet = true;

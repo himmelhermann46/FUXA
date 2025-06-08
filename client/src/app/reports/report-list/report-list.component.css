@@ -22,22 +22,19 @@
     left: 0px;
     right: 0px;
     bottom: 0px;
+    background-color: var(--workPanelBackground);
 }
 
 .container {
-    display: flex;
-    flex-direction: column;
-    min-width: 300px;
-    position: absolute;
-    bottom: 0px;
-    top: 0px;
-    left:0px;
-    right:0px;
+    /* background-color: var(); */
+    display: inline-table;
+    width: 100%;
 }
 
 .mat-table {
     overflow: auto;
     height: 100%;
+    width: 100%;
 }
 
 .mat-row {
@@ -59,19 +56,9 @@
     font-size: 15px;
 }
 
-.mat-header-row {
-    top: 0;
-    position: sticky;
-    z-index: 1;
-}
-
-.mat-header-cell {
-    font-size: 15px;
-}
-
 .mat-column-select {
     overflow: visible;
-    flex: 0 0 80px;
+    width: 50px;
 }
 
 .mat-column-name {
@@ -93,9 +80,44 @@
 }
 
 .mat-column-create {
-    flex: 0 0 60px;
+    width: 50px;
 }
 
 .mat-column-remove {
-    flex: 0 0 60px;
+    width: 50px;
+}
+
+.mat-column-expand {
+    width: 50px;
+}
+
+tr.detail-row {
+    height: 0;
+}
+  
+  /* .example-element-row td {
+    border-bottom-width: 0;
+  } */
+  
+.report-details {
+    overflow: hidden;
+    display: flex;
+}
+
+.details-description {
+    min-height: 100px;
+    max-height: 360px;
+    margin: 5px 10px;
+    padding-left: 40px;
+    width: 100%;
+    overflow: auto;
+}
+
+.report-detail div {
+    min-width: 600px;
+    display: inline-block;
+}
+
+td.details-container {
+    background-color: var(--workPanelExpandBackground);
 }
