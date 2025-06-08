@@ -7,14 +7,20 @@
 const utils = require("../utils");
 
 function getFunctionValues(values, fromts, tots, fnc, interval) {
-    if (fnc === ReportFunctionType.min) {
+    switch (fnc) {
+    case ReportFunctionType.min: {
         return getMin(values, fromts, tots, interval);
-    } else if (fnc === ReportFunctionType.max) {
+    }
+    case ReportFunctionType.max: {
         return getMax(values, fromts, tots, interval);
-    } else if (fnc === ReportFunctionType.average) {
+    }
+    case ReportFunctionType.average: {
         return getAverage(values, fromts, tots, interval);
-    } else if (fnc === ReportFunctionType.sum) {
+    }
+    case ReportFunctionType.sum: {
         return getSum(values, fromts, tots, interval);
+    }
+    // No default
     }
 }
 
@@ -40,9 +46,9 @@ function getMin(timeserie, fromts, tots, intervalType) {
         }
     }
     
-    for (let i = 0; i < sorted.length; i++) {
-        let intervalIndex = getIntervalTime(sorted[i].dt, intervalType, false).getTime();
-        addToInterval(result, intervalIndex, utils.parseFloat(sorted[i].value, 5));
+    for (const element of sorted) {
+        let intervalIndex = getIntervalTime(element.dt, intervalType, false).getTime();
+        addToInterval(result, intervalIndex, utils.parseFloat(element.value, 5));
     }
     return result;
 }
@@ -62,9 +68,9 @@ function getMax(timeserie, fromts, tots, intervalType) {
         }
     }
     
-    for (let i = 0; i < sorted.length; i++) {
-        let intervalIndex = getIntervalTime(sorted[i].dt, intervalType, false).getTime();
-        addToInterval(result, intervalIndex, utils.parseFloat(sorted[i].value, 5));
+    for (const element of sorted) {
+        let intervalIndex = getIntervalTime(element.dt, intervalType, false).getTime();
+        addToInterval(result, intervalIndex, utils.parseFloat(element.value, 5));
     }
     return result;
 }
@@ -86,16 +92,16 @@ function getAverage(timeserie, fromts, tots, intervalType) {
         }
     }
     
-    for (let i = 0; i < sorted.length; i++) {
-        let intervalIndex = getIntervalTime(sorted[i].dt, intervalType, false).getTime();
-        addToInterval(result, counts, intervalIndex, parseFloat(sorted[i].value));
+    for (const element of sorted) {
+        let intervalIndex = getIntervalTime(element.dt, intervalType, false).getTime();
+        addToInterval(result, counts, intervalIndex, Number.parseFloat(element.value));
     }
     // average
-    Object.keys(result).forEach(k => {
+    for (const k of Object.keys(result)) {
         if (counts[k]) {
             result[k] = utils.parseFloat(result[k] / counts[k], 5);
         }
-    });
+    }
     return result; 
 }
 
@@ -115,9 +121,9 @@ function getSum(timeserie, fromts, tots, intervalType) {
         }
     }
     
-    for (let i = 0; i < sorted.length; i++) {
-        let intervalIndex = getIntervalTime(sorted[i].dt, intervalType, false).getTime();
-        addToInterval(result, intervalIndex, parseFloat(sorted[i].value));
+    for (const element of sorted) {
+        let intervalIndex = getIntervalTime(element.dt, intervalType, false).getTime();
+        addToInterval(result, intervalIndex, Number.parseFloat(element.value));
     }
     return result;    
 }
@@ -140,23 +146,23 @@ function getIntegral(timeserie, fromts, tots, intervalType) {
     
     let lastRecord = null;// : TimeValue { dt: number, value: number };
     let lastIntervalIndex = null;
-    for (let i = 0; i < sorted.length; i++) {
-        let intervalIndex = getIntervalTime(sorted[i].dt, intervalType, false).getTime();
+    for (const element of sorted) {
+        let intervalIndex = getIntervalTime(element.dt, intervalType, false).getTime();
         // check missing value to fill intervalsIndex
         while (lastIntervalIndex && lastIntervalIndex < intervalIndex) {
             let nextIntervalIndex = getIntervalTime(lastRecord.dt, intervalType, true).getTime();
             let delta = nextIntervalIndex - lastRecord.dt;
-            addToInterval(result, nextIntervalIndex, parseFloat(lastRecord.value) * (delta / 1000));
+            addToInterval(result, nextIntervalIndex, Number.parseFloat(lastRecord.value) * (delta / 1000));
             lastIntervalIndex = nextIntervalIndex;
             lastRecord.dt = nextIntervalIndex;
         }
         // sum left => skip the first one
         if (lastRecord) {
-            let delta = sorted[i].dt - lastRecord.dt;
-            addToInterval(result, intervalIndex, parseFloat(sorted[i].value) * (delta / 1000));
+            let delta = element.dt - lastRecord.dt;
+            addToInterval(result, intervalIndex, Number.parseFloat(element.value) * (delta / 1000));
         }
 
-        lastRecord = sorted[i];
+        lastRecord = element;
         lastIntervalIndex = intervalIndex;
     }
     return result;

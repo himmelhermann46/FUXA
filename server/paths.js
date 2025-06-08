@@ -3,8 +3,8 @@
 
 // @ts-ignore
 const pkg = require('./package.json');
-const path = require('path');
-const os = require('os');
+const path = require('node:path');
+const os = require('node:os');
 var fs = require('fs-extra');
 
 /**
@@ -13,10 +13,14 @@ var fs = require('fs-extra');
  */
 function getAppDataPath(platform) {
 	switch (platform) {
-		case 'win32': return process.env['FUXA_APPDATA'] || process.env['APPDATA'] || path.join(process.env['USERPROFILE'], 'AppData', 'Roaming');
-		case 'darwin': return process.env['FUXA_APPDATA'] || path.join(os.homedir(), 'Library', 'Application Support');
-		case 'linux': return process.env['FUXA_APPDATA'] || process.env['XDG_CONFIG_HOME'] || path.join(os.homedir(), '.config');
-		default: throw new Error('Platform not supported');
+		case 'win32': { return process.env['FUXA_APPDATA'] || process.env['APPDATA'] || path.join(process.env['USERPROFILE'], 'AppData', 'Roaming');
+		}
+		case 'darwin': { return process.env['FUXA_APPDATA'] || path.join(os.homedir(), 'Library', 'Application Support');
+		}
+		case 'linux': { return process.env['FUXA_APPDATA'] || process.env['XDG_CONFIG_HOME'] || path.join(os.homedir(), '.config');
+		}
+		default: { throw new Error('Platform not supported');
+		}
 	}
 }
 

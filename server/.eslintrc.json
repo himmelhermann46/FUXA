@@ -1,0 +1,28 @@
+{
+  "extends": [
+    "eslint:recommended",
+    "plugin:node/recommended",
+    "plugin:security/recommended",
+    "plugin:unicorn/recommended"
+  ],
+  "plugins": [
+    "node",
+    "security",
+    "unicorn"
+  ],
+  "rules": {
+    "no-console": "warn",
+    "no-duplicate-imports": "error",
+    "no-unused-vars": "warn",
+    "unicorn/prevent-abbreviations": "off",
+    "unicorn/filename-case": "off",
+    "unicorn/expiring-todo-comments": "off"
+  },
+  "env": {
+    "node": true,
+    "es2021": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2021
+  }
+}

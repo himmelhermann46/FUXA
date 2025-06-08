@@ -20,10 +20,10 @@ module.exports = {
     app: function () {
         var authApp = express();
         authApp.use(function (req, res, next) {
-            if (!runtime.project) {
-                res.status(404).end();
-            } else {
+            if (runtime.project) {
                 next();
+            } else {
+                res.status(404).end();
             }
         });
 
@@ -33,7 +33,7 @@ module.exports = {
          */
         authApp.post('/api/signin', function (req, res, next) {
             runtime.users.findOne(req.body).then(function (userInfo) {
-                if (userInfo && userInfo.length && userInfo[0].password) {
+                if (userInfo && userInfo.length > 0 && userInfo[0].password) {
                     if (bcrypt.compareSync(req.body.password, userInfo[0].password)) {
                         const token = jwt.sign({ id: userInfo[0].username, groups: userInfo[0].groups }, secretCode, { expiresIn: tokenExpiresIn });//'1h' });
                         res.json({ status: 'success', message: 'user found!!!', data: { username: userInfo[0].username, fullname: userInfo[0].fullname, groups: userInfo[0].groups , token: token } });
@@ -46,13 +46,13 @@ module.exports = {
                     res.status(404).end();
                     runtime.logger.error('api post signin: Not Found!');
                 }
-            }).catch(function (err) {
-                if (err.code) {
-                    res.status(400).json({error:err.code, message: err.message});
+            }).catch(function (error) {
+                if (error.code) {
+                    res.status(400).json({error:error.code, message: error.message});
                 } else {
-                    res.status(400).json({error:'unexpected_error', message:err.toString()});
+                    res.status(400).json({error:'unexpected_error', message:error.toString()});
                 }
-                runtime.logger.error('api post signin: ' + err.message);
+                runtime.logger.error('api post signin: ' + error.message);
             });
         });
 

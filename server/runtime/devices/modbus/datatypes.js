@@ -105,7 +105,7 @@ const Datatypes = {
     String: {
         bytes: 1,
         parser: (buffer, offset = 0) => buffer.toString('ascii', offset, offset + 1),
-        formatter: v => new Buffer(v, 'ascii'),
+        formatter: v => Buffer.from(v, 'ascii'),
         WordLen: 1
     }
 };

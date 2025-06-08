@@ -56,14 +56,14 @@ const deviceUtils = require('../device-utils');
             try {
                 if (tocheck) {
                     var varsValueChanged = _checkVarsChanged();
-                    lastTimestampValue = new Date().getTime();
+                    lastTimestampValue = Date.now();
                     _emitValues(varsValue);
                     if (this.addDaq) {
                         this.addDaq(varsValueChanged, data.name);
                     }
                 }
-            } catch (err) {
-                logger.error(`'${data.name}' polling error: ${err}`);
+            } catch (error) {
+                logger.error(`'${data.name}' polling error: ${error}`);
             }
             _checkWorking(false);
         }
@@ -155,7 +155,7 @@ const deviceUtils = require('../device-utils');
      * @param {*} value as string
      */
     var _parseValue = function (value) {
-        let val = parseFloat(value);
+        let val = Number.parseFloat(value);
         if (Number.isNaN(val)) {
             // maybe boolean
             val = Number(value);
@@ -164,7 +164,7 @@ const deviceUtils = require('../device-utils');
                 val = value;
             }
         } else {
-            val = parseFloat(val.toFixed(5));
+            val = Number.parseFloat(val.toFixed(5));
         }
         return val;
     }
@@ -183,7 +183,7 @@ const deviceUtils = require('../device-utils');
      * Return the Tags that have value changed and clear value changed flag of all Tags 
      */
     var _checkVarsChanged = () => {
-        const timestamp = new Date().getTime();
+        const timestamp = Date.now();
         var result = {};
         for (var id in data.tags) {
             if (this.addDaq && !utils.isNullOrUndefined(data.tags[id].value) && deviceUtils.tagDaqToSave(data.tags[id], timestamp)) {
@@ -224,8 +224,7 @@ const deviceUtils = require('../device-utils');
 }
 
 module.exports = {
-    init: function (settings) {
-    },
+    init: function (settings) {},
     create: function (data, logger, events) {
         return new FuxaServer(data, logger, events);
     }

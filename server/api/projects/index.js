@@ -4,8 +4,8 @@
 
 var express = require("express");
 const authJwt = require('../jwt-helper');
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 var runtime;
 var secureFnc;
@@ -20,10 +20,10 @@ module.exports = {
     app: function () {
         var prjApp = express();
         prjApp.use(function(req,res,next) {
-            if (!runtime.project) {
-                res.status(404).end();
-            } else {
+            if (runtime.project) {
                 next();
+            } else {
+                res.status(404).end();
             }
         });
 
@@ -42,15 +42,15 @@ module.exports = {
                     res.status(404).end();
                     runtime.logger.error("api get project: Not Found!");
                 }
-            }).catch(function(err) {
-                if (err && err.code) {
-                    if (err.code !== 'ERR_HTTP_HEADERS_SENT') {
-                        res.status(400).json({error:err.code, message: err.message});
-                        runtime.logger.error("api get project: " + err.message);
+            }).catch(function(error) {
+                if (error && error.code) {
+                    if (error.code !== 'ERR_HTTP_HEADERS_SENT') {
+                        res.status(400).json({error:error.code, message: error.message});
+                        runtime.logger.error("api get project: " + error.message);
                     }
                 } else {
-                    res.status(400).json({error:"unexpected_error", message: err});
-                    runtime.logger.error("api get project: " + err);
+                    res.status(400).json({error:"unexpected_error", message: error});
+                    runtime.logger.error("api get project: " + error);
                 }
             });
         });
@@ -63,23 +63,23 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api post project: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                runtime.logger.error("api post project: Unauthorized");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups) ) {
                 runtime.project.setProject(req.body).then(function(data) {
                     runtime.restart(true).then(function(result) {
                         res.end();
                     });
-                }).catch(function(err) {
-                    if (err && err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
-                        runtime.logger.error("api post project: " + err.message);
+                }).catch(function(error) {
+                    if (error && error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
+                        runtime.logger.error("api post project: " + error.message);
                     } else {
-                        res.status(400).json({error:"unexpected_error", message: err});
-                        runtime.logger.error("api post project: " + err);
+                        res.status(400).json({error:"unexpected_error", message: error});
+                        runtime.logger.error("api post project: " + error);
                     }
                 });
+            } else {
+                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                runtime.logger.error("api post project: Unauthorized");
             }
         });
 
@@ -91,23 +91,23 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api post projectData: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                runtime.logger.error("api post projectData: Unauthorized");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups) ) {
                 runtime.project.setProjectData(req.body.cmd, req.body.data).then(setres => {
                     runtime.update(req.body.cmd, req.body.data).then(result => {
                         res.end();
                     });
-                }).catch(function(err) {
-                    if (err && err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
-                        runtime.logger.error("api post projectData: " + err.message);
+                }).catch(function(error) {
+                    if (error && error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
+                        runtime.logger.error("api post projectData: " + error.message);
                     } else {
-                        res.status(400).json({error:"unexpected_error", message: err});
-                        runtime.logger.error("api post projectData: " + err);
+                        res.status(400).json({error:"unexpected_error", message: error});
+                        runtime.logger.error("api post projectData: " + error);
                     }
                 });
+            } else {
+                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                runtime.logger.error("api post projectData: Unauthorized");
             }
         });
 
@@ -135,10 +135,7 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api get device: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                runtime.logger.error("api get device: Unauthorized");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups) ) {
                 runtime.project.getDeviceProperty(req.query).then(result => {
                     // res.header("Access-Control-Allow-Origin", "*");
                     // res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -147,15 +144,18 @@ module.exports = {
                     } else {
                         res.end();
                     }
-                }).catch(function(err) {
-                    if (err && err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
-                        runtime.logger.error("api get device: " + err.message);
+                }).catch(function(error) {
+                    if (error && error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
+                        runtime.logger.error("api get device: " + error.message);
                     } else {
-                        res.status(400).json({error:"unexpected_error", message: err});
-                        runtime.logger.error("api get device: " + err);
+                        res.status(400).json({error:"unexpected_error", message: error});
+                        runtime.logger.error("api get device: " + error);
                     }
                 });
+            } else {
+                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                runtime.logger.error("api get device: Unauthorized");
             }
         });
 
@@ -167,21 +167,21 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api post device: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                runtime.logger.error("api post device: Unauthorized");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups) ) {
                 runtime.project.setDeviceProperty(req.body.params).then(function(data) {
                     res.end();
-                }).catch(function(err) {
-                    if (err && err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
-                        runtime.logger.error("api post device: " + err.message);
+                }).catch(function(error) {
+                    if (error && error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
+                        runtime.logger.error("api post device: " + error.message);
                     } else {
-                        res.status(400).json({error:"unexpected_error", message: err});
-                        runtime.logger.error("api post device: " + err);
+                        res.status(400).json({error:"unexpected_error", message: error});
+                        runtime.logger.error("api post device: " + error);
                     }
                 });                
+            } else {
+                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                runtime.logger.error("api post device: Unauthorized");
             }
         });
 
@@ -205,13 +205,13 @@ module.exports = {
                 fs.writeFileSync(filePath, basedata, encoding);
                 let result = {'location': '/' + runtime.settings.httpUploadFileStatic + '/' + fileName };
                 res.json(result);
-            } catch (err) {
-                if (err && err.code) {
-                    res.status(400).json({error: err.code, message: err.message});
-                    runtime.logger.error("api upload: " + err.message);
+            } catch (error) {
+                if (error && error.code) {
+                    res.status(400).json({error: error.code, message: error.message});
+                    runtime.logger.error("api upload: " + error.message);
                 } else {
-                    res.status(400).json({error:"unexpected_error", message: err});
-                    runtime.logger.error("api upload: " + err);
+                    res.status(400).json({error:"unexpected_error", message: error});
+                    runtime.logger.error("api upload: " + error);
                 }
             }
         });

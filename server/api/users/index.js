@@ -17,10 +17,10 @@ module.exports = {
     app: function() {
         var usersApp = express();
         usersApp.use(function(req,res,next) {
-            if (!runtime.project) {
-                res.status(404).end();
-            } else {
+            if (runtime.project) {
                 next();
+            } else {
+                res.status(404).end();
             }
         });
 
@@ -32,10 +32,7 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api get users: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                runtime.logger.error("api get users: Unauthorized!");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups) ) {
                 runtime.users.getUsers(req.query).then(result => {
                     // res.header("Access-Control-Allow-Origin", "*");
                     // res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -44,14 +41,17 @@ module.exports = {
                     } else {
                         res.end();
                     }
-                }).catch(function(err) {
-                    if (err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
+                }).catch(function(error) {
+                    if (error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
                     } else {
-                        res.status(400).json({error:"unexpected_error", message:err.toString()});
+                        res.status(400).json({error:"unexpected_error", message:error.toString()});
                     }
-                    runtime.logger.error("api get users: " + err.message);
+                    runtime.logger.error("api get users: " + error.message);
                 });                
+            } else {
+                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                runtime.logger.error("api get users: Unauthorized!");
             }
         });
 
@@ -63,20 +63,20 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api post users: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                runtime.logger.error("api post users: Unauthorized");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups) ) {
                 runtime.users.setUsers(req.body.params).then(function(data) {
                     res.end();
-                }).catch(function(err) {
-                    if (err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
+                }).catch(function(error) {
+                    if (error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
                     } else {
-                        res.status(400).json({error:"unexpected_error", message:err.toString()});
+                        res.status(400).json({error:"unexpected_error", message:error.toString()});
                     }
-                    runtime.logger.error("api post users: " + err.message);
+                    runtime.logger.error("api post users: " + error.message);
                 });                
+            } else {
+                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                runtime.logger.error("api post users: Unauthorized");
             }
         });
         
@@ -88,20 +88,20 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api delete users: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                runtime.logger.error("api delete users: Unauthorized");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups) ) {
                 runtime.users.removeUsers(req.query.param).then(function(data) {
                     res.end();
-                }).catch(function(err) {
-                    if (err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
+                }).catch(function(error) {
+                    if (error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
                     } else {
-                        res.status(400).json({error:"unexpected_error", message:err.toString()});
+                        res.status(400).json({error:"unexpected_error", message:error.toString()});
                     }
-                    runtime.logger.error("api delete users: " + err.message);
+                    runtime.logger.error("api delete users: " + error.message);
                 });                
+            } else {
+                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                runtime.logger.error("api delete users: Unauthorized");
             }
         });   
         return usersApp;

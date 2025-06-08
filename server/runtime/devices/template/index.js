@@ -104,8 +104,7 @@ function DeviceTemplate(_data, _logger, _events) {
 }
 
 module.exports = {
-    init: function (settings) {
-    },
+    init: function (settings) {},
     create: function (data, logger, events, manager) {
         // To use with plugin
         // try { TemplateDriver = require('template-driver'); } catch { }

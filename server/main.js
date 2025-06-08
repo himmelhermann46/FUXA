@@ -1,9 +1,9 @@
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const morgan = require('morgan');
-const http = require('http');
-const https = require('https');
+const http = require('node:http');
+const https = require('node:https');
 const socketIO = require('socket.io');
 const nopt = require("nopt");
 
@@ -77,8 +77,8 @@ if (fs.existsSync(appSettingsFile)) {
     try {
         fs.copyFileSync(defaultSettings, appSettingsFile, fs.constants.COPYFILE_EXCL);
         logger.debug('settings.js default created successful!');
-    } catch (err) {
-        logger.error(err);
+    } catch (error) {
+        logger.error(error);
     }
     settingsFile = appSettingsFile;
 }
@@ -100,14 +100,14 @@ try {
         logger.warn("Settings aren't up to date! Please check 'settings.json'.");
         // settings = Object.assign(defSettings, settings);
     }
-} catch (err) {
+} catch (error) {
     logger.error('Error loading settings file: ' + settingsFile)
-    if (err.code == 'MODULE_NOT_FOUND') {
-        if (err.toString().indexOf(settingsFile) === -1) {
-            logger.error(err.toString());
+    if (error.code == 'MODULE_NOT_FOUND') {
+        if (!error.toString().includes(settingsFile)) {
+            logger.error(error.toString());
         }
     } else {
-        logger.error(err);
+        logger.error(error);
     }
     process.exit();
 }
@@ -134,7 +134,7 @@ try {
             settings.daqstore = mysettings.daqstore;
         }
     }
-} catch (err) {
+} catch {
     logger.error('Error loading user settings file: ' + userSettingsFile)
 }
 
@@ -181,11 +181,7 @@ if (!fs.existsSync(settings.imagesFileDir)) {
 }
 
 // Server settings
-if (settings.https) {
-    server = https.createServer(settings.https, function (req, res) { app(req, res); });
-} else {
-    server = http.createServer(function (req, res) { app(req, res); });
-}
+server = settings.https ? https.createServer(settings.https, function (req, res) { app(req, res); }) : http.createServer(function (req, res) { app(req, res); });
 server.setMaxListeners(0);
 
 const io = socketIO(server);
@@ -194,12 +190,12 @@ const io = socketIO(server);
 var www = path.resolve(__dirname, '../client/dist');
 settings.httpStatic = settings.httpStatic || www;
 
-if (parsedArgs.port !== undefined){
-    settings.uiPort = parsedArgs.port;
-} else {
+if (parsedArgs.port === undefined){
     if (settings.uiPort === undefined){
         settings.uiPort = 1881;
     }
+} else {
+    settings.uiPort = parsedArgs.port;
 }
 settings.uiHost = settings.uiHost || "0.0.0.0";
 
@@ -212,18 +208,18 @@ events.once('init-runtime-ok', function () {
 // Init FUXA
 try {
     FUXA.init(server, io, settings, logger, events);
-} catch(err) {
-    if (err.code == 'unsupported_version') {
+} catch(error) {
+    if (error.code == 'unsupported_version') {
         logger.error('Unsupported version of node.js:', process.version);
         logger.error('FUXA requires node.js v6 or later');
-    } else if (err.code == 'not_built') {
+    } else if (error.code == 'not_built') {
         logger.error('FUXA has not been built. See README.md for details');
     } else {
         logger.error('Failed to start server:');
-        if (err.stack) {
-            logger.error(err.stack);
+        if (error.stack) {
+            logger.error(error.stack);
         } else {
-            logger.error(err);
+            logger.error(error);
         }
     }
     process.exit(1);
@@ -239,9 +235,7 @@ var allowCrossDomain = function(req, res, next) {
     try {
         var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
         // logger.info("Client: " + ip, false);
-    } catch (err) {
-
-    }
+    } catch {}
 }
 app.use(allowCrossDomain);
 app.use('/', express.static(settings.httpStatic));
@@ -325,12 +319,12 @@ function startFuxa() {
         } else {
             logger.info('server.headless-mode');
         }
-    }).catch(function (err) {
+    }).catch(function (error) {
         logger.error('server.failed-to-start');
-        if (err.stack) {
-            logger.error(err.stack);
+        if (error.stack) {
+            logger.error(error.stack);
         } else {
-            logger.error(err);
+            logger.error(error);
         }
     });
 }
@@ -338,7 +332,7 @@ function startFuxa() {
 // Don't wait any more
 setTimeout(() => {
     events.emit('init-runtime-ok');
-}, 60000);
+}, 60_000);
 
 process.on('uncaughtException', function (err) {
     if (err.stack) {

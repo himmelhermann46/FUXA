@@ -33,9 +33,7 @@ function OpcUAclient(_data, _logger, _events) {
     this.connect = function () {
         var self = this;
         return new Promise(function (resolve, reject) {
-            if (!_checkWorking(true)) {
-                reject();
-            } else {
+            if (_checkWorking(true)) {
                 var property = null;
                 async.series([
                     // step 1 check property
@@ -61,8 +59,8 @@ function OpcUAclient(_data, _logger, _events) {
                                     client = opcua.OPCUAClient.create(opts);  
                                 }
                                 callback();
-                            }).catch(function (err) {
-                                callback(err);
+                            }).catch(function (error) {
+                                callback(error);
                             });  
                         } else {
                             callback();
@@ -82,7 +80,7 @@ function OpcUAclient(_data, _logger, _events) {
                         });
                         client.on("connection_lost", () => {
                             logger.error(`'${data.name}' connection lost!`);
-                            self.disconnect().then(function () { });
+                            self.disconnect().then(function () {});
                         });
                         client.on("backoff", (retry, delay) => {
                             logger.error(`'${data.name}' retry to connect! ${retry}`);
@@ -90,7 +88,7 @@ function OpcUAclient(_data, _logger, _events) {
                     },
                     // step 3 create session
                     function (callback) {
-                        const userIdentityInfo = { };
+                        const userIdentityInfo = {};
                         if (property && property.uid && property.pwd) {
                             userIdentityInfo['userName'] = property.uid;
                             userIdentityInfo['password'] = property.pwd;
@@ -125,7 +123,7 @@ function OpcUAclient(_data, _logger, _events) {
                             _clearVarsValue();
                             connected = false;
                             reject();
-                            client.disconnect(function () { });
+                            client.disconnect(function () {});
                         } else {
                             logger.info(`'${data.name}' connected!`, true);
                             _emitStatus('connect-ok');
@@ -134,6 +132,8 @@ function OpcUAclient(_data, _logger, _events) {
                         }
                         _checkWorking(false);
                     });
+            } else {
+                reject();
             }
         });
     }
@@ -172,7 +172,7 @@ function OpcUAclient(_data, _logger, _events) {
                     referenceTypeId: 'Organizes',
                     includeSubtypes: true,
                     browseDirection: opcua.BrowseDirection.Forward,
-                    resultMask: 0x3f
+                    resultMask: 0x3F
 
                 },
                 {
@@ -180,7 +180,7 @@ function OpcUAclient(_data, _logger, _events) {
                     referenceTypeId: 'Aggregates',
                     includeSubtypes: true,
                     browseDirection: opcua.BrowseDirection.Forward,
-                    resultMask: 0x3f
+                    resultMask: 0x3F
 
                 },
                 {
@@ -188,13 +188,15 @@ function OpcUAclient(_data, _logger, _events) {
                     referenceTypeId: 'HasSubtype',
                     includeSubtypes: true,
                     browseDirection: opcua.BrowseDirection.Forward,
-                    resultMask: 0x3f
+                    resultMask: 0x3F
                 }];
 
                 the_session.browse(nodeId, function (err, browseResult) {
-                    if (!err) {
+                    if (err) {
+                        reject(err);
+                    } else {
                         let opcNodes = [];
-                        browseResult.references.forEach(function (reference) {
+                        for (const reference of browseResult.references) {
                             let node = new OpcNode(reference.browseName.toString());
                             if (reference.displayName) {
                                 node.name = reference.displayName.text;
@@ -202,20 +204,18 @@ function OpcUAclient(_data, _logger, _events) {
                             node.id = reference.nodeId;
                             node.class = reference.nodeClass;
                             opcNodes.push(node);
-                        });
+                        }
 
                         if (browseResult.continuationPoint) {
                             var nextresult = _browseNext(browseResult.continuationPoint).then(nodes => {
-                                for (let i = 0; i < nodes.length; i++) {
-                                    opcNodes.push(nodes[i]);
+                                for (const node_ of nodes) {
+                                    opcNodes.push(node_);
                                 }
                                 resolve(opcNodes);
                             });
                         } else {
                             resolve(opcNodes);
                         }
-                    } else {
-                        reject(err);
                     }
                 });
             } else {
@@ -240,7 +240,7 @@ function OpcUAclient(_data, _logger, _events) {
                 } else {
                     if (response.results && response.results[0]) {
                         let browseResult = response.results[0];
-                        browseResult.references.forEach(function (reference) {
+                        for (const reference of browseResult.references) {
                             let node = new OpcNode(reference.browseName.toString());
                             if (reference.displayName) {
                                 node.name = reference.displayName.text;
@@ -248,11 +248,11 @@ function OpcUAclient(_data, _logger, _events) {
                             node.id = reference.nodeId;
                             node.class = reference.nodeClass;
                             opcNodes.push(node);
-                        });
+                        }
                         if (browseResult.continuationPoint) {
                             _browseNext(browseResult.continuationPoint).then(nodes => {
-                                for (let i = 0; i < nodes.length; i++) {
-                                    opcNodes.push(nodes[i]);
+                                for (const node of nodes) {
+                                    opcNodes.push(node);
                                 }
                                 return resolve(opcNodes);
                             });
@@ -286,10 +286,10 @@ function OpcUAclient(_data, _logger, _events) {
                     reject('#readAllAttributes returned ' + err.message);
                 } else {
                     node.attribute = {};
-                    for (let i = 0; i < nodesToRead.length; i++) {
-                        const obj = _attrToObject(nodesToRead[i].attributeId, dataValues[i]);
+                    for (const [i, element] of nodesToRead.entries()) {
+                        const obj = _attrToObject(element.attributeId, dataValues[i]);
                         if (obj) {
-                            node.attribute[nodesToRead[i].attributeId] = obj.attribute;
+                            node.attribute[element.attributeId] = obj.attribute;
                         }
                         // if (dataValue.statusCode !== opcua.StatusCodes.Good) {
                         //     continue;
@@ -319,14 +319,14 @@ function OpcUAclient(_data, _logger, _events) {
             } else if (the_session && client) {
                 try {
                     var varsValueChanged = _checkVarsChanged();
-                    lastTimestampValue = new Date().getTime();
+                    lastTimestampValue = Date.now();
                     _emitValues(varsValue);
 
                     if (this.addDaq) {
                         this.addDaq(varsValueChanged, data.name);
                     }
-                } catch (err) {
-                    logger.error(`'${data.name}' polling error: ${err}`);
+                } catch (error) {
+                    logger.error(`'${data.name}' polling error: ${error}`);
                 }
                 _checkWorking(false);
             } else {
@@ -343,8 +343,8 @@ function OpcUAclient(_data, _logger, _events) {
         try {
             var count = Object.keys(data.tags).length;
             logger.info(`'${data.name}' data loaded (${count})`, true);
-        } catch (err) {
-            logger.error(`'${data.name}' load error! ${err}`);
+        } catch (error) {
+            logger.error(`'${data.name}' load error! ${error}`);
         }
     }
 
@@ -440,15 +440,15 @@ function OpcUAclient(_data, _logger, _events) {
      * @param {*} callback 
      */
     var _disconnect = function (callback) {
-        if (!the_session) {
-            client.disconnect(function (err) {
-                callback(err);
-            });
-        } else {
+        if (the_session) {
             the_session.close(function () {
                 client.disconnect(function (err) {
                     callback(err);
                 });
+            });
+        } else {
+            client.disconnect(function (err) {
+                callback(err);
             });
         }
     }
@@ -497,8 +497,8 @@ function OpcUAclient(_data, _logger, _events) {
                         opcua.TimestampsToReturn.Both
                     );
                     monitoredItem.on('changed', _monitorcallback(nodeId));
-                } catch (err) {
-                    logger.error(`'${nodeId}' _startMonitor ${err}`);
+                } catch (error) {
+                    logger.error(`'${nodeId}' _startMonitor ${error}`);
                 }
             }
             callback(true);
@@ -541,7 +541,7 @@ function OpcUAclient(_data, _logger, _events) {
      * Return the Tags that have value changed and clear value changed flag of all Tags
      */
     var _checkVarsChanged = () => {
-        const timestamp = new Date().getTime();
+        const timestamp = Date.now();
         var result = {};
         for (var id in data.tags) {
             if (this.addDaq && !utils.isNullOrUndefined(data.tags[id].value) && deviceUtils.tagDaqToSave(data.tags[id], timestamp)) {
@@ -594,9 +594,10 @@ function OpcUAclient(_data, _logger, _events) {
             return null;
         }
         switch (attribute) {
-            case opcua.AttributeIds.DataType:
+            case opcua.AttributeIds.DataType: {
                 let dtype = opcua.DataType[dataValue.value.value.value];
                 return { attribute: dtype };
+            }
             // case opcua.AttributeIds.NodeClass:
             //     return NodeClass[dataValue.value.value] + " (" + dataValue.value.value + ")";
             // case opcua.AttributeIds.IsAbstract:
@@ -620,7 +621,7 @@ function OpcUAclient(_data, _logger, _events) {
             //     }
             //     return dataValue.value.value.toString();
             case opcua.AttributeIds.UserAccessLevel:
-            case opcua.AttributeIds.AccessLevel:
+            case opcua.AttributeIds.AccessLevel: {
                 if (!dataValue.value.value) {
                     return null;
                 }
@@ -637,8 +638,10 @@ function OpcUAclient(_data, _logger, _events) {
                     lev += 'W';
                 }
                 return { attribute: lev };
-            default:
+            }
+            default: {
                 return null;
+            }
         }
     }
 
@@ -647,36 +650,53 @@ function OpcUAclient(_data, _logger, _events) {
      * @param {*} type 
      */
     var _toDataType = function (type) {
-        if (type === 'Boolean') {
+        switch (type) {
+        case 'Boolean': {
             return opcua.DataType.Boolean;
-        } else if (type === 'SByte') {
+        }
+        case 'SByte': {
             return opcua.DataType.SByte;
-        } else if (type === 'Byte') {
+        }
+        case 'Byte': {
             return opcua.DataType.Byte;
-        } else if (type === 'Int16') {
+        }
+        case 'Int16': {
             return opcua.DataType.Int16;
-        } else if (type === 'UInt16') {
+        }
+        case 'UInt16': {
             return opcua.DataType.UInt16;
-        } else if (type === 'Int32') {
+        }
+        case 'Int32': {
             return opcua.DataType.Int32;
-        } else if (type === 'UInt32') {
+        }
+        case 'UInt32': {
             return opcua.DataType.UInt32;
-        } else if (type === 'Int64') {
+        }
+        case 'Int64': {
             return opcua.DataType.Int64;
-        } else if (type === 'UInt64') {
+        }
+        case 'UInt64': {
             return opcua.DataType.UInt64;
-        } else if (type === 'Float') {
+        }
+        case 'Float': {
             return opcua.DataType.Float;
-        } else if (type === 'Double') {
+        }
+        case 'Double': {
             return opcua.DataType.Double;
-        } else if (type === 'String') {
+        }
+        case 'String': {
             return opcua.DataType.String;
-        } else if (type === 'DateTime') {
+        }
+        case 'DateTime': {
             return opcua.DataType.DateTime;
-        } else if (type === 'Guid') {
+        }
+        case 'Guid': {
             return opcua.DataType.Guid;
-        } else if (type === 'ByteString') {
+        }
+        case 'ByteString': {
             return opcua.DataType.ByteString;
+        }
+        // No default
         }
     }
 
@@ -687,11 +707,12 @@ function OpcUAclient(_data, _logger, _events) {
      */
     var _toValue = function (type, value) {
         switch (type) {
-            case opcua.DataType.Boolean:
+            case opcua.DataType.Boolean: {
                 if (value.toLowerCase() === 'true' || value === '1') {
                     return true;
                 }
                 return false;
+            }
             case opcua.DataType.SByte:
             case opcua.DataType.Byte:
             case opcua.DataType.Int16:
@@ -699,13 +720,16 @@ function OpcUAclient(_data, _logger, _events) {
             case opcua.DataType.Int32:
             case opcua.DataType.UInt3:
             case opcua.DataType.Int64:
-            case opcua.DataType.UInt64:
-                return parseInt(value);
+            case opcua.DataType.UInt64: {
+                return Number.parseInt(value);
+            }
             case opcua.DataType.Float:
-            case opcua.DataType.Double:
-                return parseFloat(value);
-            default:
+            case opcua.DataType.Double: {
+                return Number.parseFloat(value);
+            }
+            default: {
                 return value;
+            }
         }
     }
 }
@@ -731,14 +755,14 @@ function getEndPoints(endpointUrl) {
                             }));
                             resolve( reducedEndpoints);
                             client.disconnect();
-                        }, reason => {
-                            reject('getendpoints-error: ' + reason);
+                        }, error => {
+                            reject('getendpoints-error: ' + error);
                             client.disconnect();
                         });
                     }
                 });
-            } catch (err) {
-                reject('getendpoints-error: ' + err);
+            } catch (error) {
+                reject('getendpoints-error: ' + error);
             }
         } else {
             reject('getendpoints-error: node-opcua not found!');
@@ -748,8 +772,8 @@ function getEndPoints(endpointUrl) {
 
 function loadOpcUALib() {
     if (!opcua) {
-        try { opcua = require('node-opcua'); } catch { }
-        if (!opcua && manager) { try { opcua = manager.require('node-opcua'); } catch { } }
+        try { opcua = require('node-opcua'); } catch {}
+        if (!opcua && manager) { try { opcua = manager.require('node-opcua'); } catch {} }
     }
     return (opcua) ? true : false;
 }

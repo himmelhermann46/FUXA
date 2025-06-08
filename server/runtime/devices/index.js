@@ -47,9 +47,9 @@ function stop() {
         return Promise.all(deviceStopfnc).then(values => {
             resolve(true);
             wokingStatus = null;
-        }, reason => {
-            runtime.logger.error('devices.stop-all: ' + reason);
-            resolve(reason);
+        }, error => {
+            runtime.logger.error('devices.stop-all: ' + error);
+            resolve(error);
             wokingStatus = null;
         });
     });
@@ -60,13 +60,11 @@ function stop() {
  */
 function update() {
     devices.stop().then(function () {
-        devices.start().then(function () {
-
-        }).catch(function (err) {
-            runtime.logger.error('devices.update-start: ' + err);
+        devices.start().then(function () {}).catch(function (error) {
+            runtime.logger.error('devices.update-start: ' + error);
         });
-    }).catch(function (err) {
-        runtime.logger.error('devices.ipdate-stop: ' + err);
+    }).catch(function (error) {
+        runtime.logger.error('devices.ipdate-stop: ' + error);
     });
 }
 
@@ -75,11 +73,7 @@ function update() {
  * @param {*} device 
  */
 function updateDevice(device) {
-    if (!activeDevices[device.id]) {
-        if (devices.loadDevice(device) && device.enabled) {
-            activeDevices[device.id].start();
-        }
-    } else {
+    if (activeDevices[device.id]) {
         activeDevices[device.id].stop().then(function () {
             devices.loadDevice(device);
             if (device.enabled) {
@@ -87,9 +81,13 @@ function updateDevice(device) {
             } else {
                 delete activeDevices[device.id];
             }
-        }).catch(function (err) {
-            runtime.logger.error('devices.update-device ' + device.name + ': ' + err);
+        }).catch(function (error) {
+            runtime.logger.error('devices.update-device ' + device.name + ': ' + error);
         });
+    } else {
+        if (devices.loadDevice(device) && device.enabled) {
+            activeDevices[device.id].start();
+        }
     }
 }
 
@@ -98,15 +96,15 @@ function updateDevice(device) {
  * @param {*} device 
  */
 function removeDevice(device) {
-    if (!activeDevices[device.id]) {
-        delete activeDevices[device.id];
-    } else {
+    if (activeDevices[device.id]) {
         activeDevices[device.id].stop().then(function () {
             delete activeDevices[device.id];
-        }).catch(function (err) {
+        }).catch(function (error) {
             delete activeDevices[device.id];
-            runtime.logger.error('devices.remove-device by stop ' + device.name + ': ' + err);
+            runtime.logger.error('devices.remove-device by stop ' + device.name + ': ' + error);
         });
+    } else {
+        delete activeDevices[device.id];
     }
 }
 
@@ -125,7 +123,7 @@ function load() {
     }
     // log remove device not used
     for (var id in activeDevices) {
-        if (Object.keys(tempdevices).indexOf(id) < 0) {
+        if (!Object.keys(tempdevices).includes(id)) {
             runtime.logger.info(`devices.load-removed: '${activeDevices[id].name}'`, true);
         }
     }
@@ -209,14 +207,10 @@ function getDeviceValue(deviceid, sigid) {
         let deviceid = getDeviceIdFromTag(sigid)
         if (activeDevices[deviceid]) {
             let result = activeDevices[deviceid].getValue(sigid);
-            if (fully) {
-                return result;
-            } else {
-                return result.value;
-            }
+            return fully ? result : result.value;
         }
-    } catch (err) {
-        console.error(err);
+    } catch (error) {
+        console.error(error);
     }
     return null;
 }
@@ -233,8 +227,8 @@ function getDeviceValue(deviceid, sigid) {
         if (activeDevices[deviceid]) {
             return activeDevices[deviceid].setValue(tagid, value);
         }
-    } catch (err) {
-        console.error(err);
+    } catch (error) {
+        console.error(error);
     }
     return null;
 }
@@ -283,8 +277,8 @@ function browseDevice(deviceid, node, callback) {
         if (activeDevices[deviceid] && activeDevices[deviceid].browse) {
             activeDevices[deviceid].browse(node, callback).then(function (result) {
                 resolve(result);
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         } else {
             reject('Device not found!');
@@ -302,8 +296,8 @@ function readNodeAttribute(deviceid, node) {
         if (activeDevices[deviceid] && activeDevices[deviceid].readNodeAttribute) {
             activeDevices[deviceid].readNodeAttribute(node).then(function (result) {
                 resolve(result);
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         } else {
             reject('Device not found!');
@@ -320,8 +314,8 @@ function getDeviceTagsResult(deviceId) {
         if (activeDevices[deviceId] && activeDevices[deviceId].getTagsProperty) {
             activeDevices[deviceId].getTagsProperty().then(function (result) {
                 resolve(result);
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         } else {
             reject('Device not found!');

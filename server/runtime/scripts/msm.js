@@ -4,7 +4,7 @@
 */
 
 'use strict';
-const path = require('path');
+const path = require('node:path');
 
 var Module = module.constructor;
 
@@ -26,9 +26,9 @@ function MyScriptsModule(_events, _logger) {
 
     this.init = function (sysfncs) {
         systemFunctions = sysfncs;
-        Object.keys(systemFunctions).forEach(k => {
+        for (const k of Object.keys(systemFunctions)) {
             global[k] = systemFunctions[k];
-        });
+        }
     }
 
     this.loadScripts = function (_scripts) {
@@ -80,12 +80,12 @@ function MyScriptsModule(_events, _logger) {
         try {
             let functions = '';
             let toexport = '';
-            Object.values(_scripts).forEach((script) => {
+            for (const script of Object.values(_scripts)) {
                 try {
                     if (script.code) {
                         var params = '';
                         for (let i = 0; i < script.parameters.length; i++) {
-                            if (params.length) params += ',';
+                            if (params.length > 0) params += ',';
                             params += `${script.parameters[i].name}`;
                         }
                         functions += `function ${script.name} (${params}) { ${script.code} } `;
@@ -95,11 +95,11 @@ function MyScriptsModule(_events, _logger) {
                         logger.warn(`load.script ${script.name} without code!`);
                         result.messages.push(`load.script ${script.name} without code!`);
                     }
-                } catch(e) {
-                    logger.error(`load.script ${script.name} error: ${(e.stack) ? e.stack : e}`);
+                } catch(error) {
+                    logger.error(`load.script ${script.name} error: ${(error.stack) ? error.stack : error}`);
                     result.messages.push(`load.script ${script.name} error!`);
                 }
-            });
+            }
             var code = '';
             if (_includes) {
                 code = `${_includes}`;
@@ -107,8 +107,8 @@ function MyScriptsModule(_events, _logger) {
             var code = `${code} ${functions} module.exports = { ${toexport} };`;
             var filename = path.resolve(__dirname, 'msm-scripts.js');
             result.module = _requireFromString(code, filename);
-        } catch(ex) {
-            logger.error(`load.script error: ${(ex.stack) ? ex.stack : ex}`);
+        } catch(error) {
+            logger.error(`load.script error: ${(error.stack) ? error.stack : error}`);
         }
         return result;
     }

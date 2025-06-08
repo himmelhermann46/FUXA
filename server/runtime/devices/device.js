@@ -31,46 +31,73 @@ function Device(data, runtime) {
     var comm;                                               // Interface to OPCUA/S7/.. Device
                                                             // required: connect, disconnect, isConnected, polling, init, load, getValue, 
                                                             // getValues, getStatus, setValue, bindAddDaq, getTagProperty, 
-    if (data.type === DeviceEnum.S7) {
+    switch (data.type) {
+    case DeviceEnum.S7: {
         if (!S7client) {
             return null;
         }
         comm = S7client.create(data, logger, events, manager);
-    } else if (data.type === DeviceEnum.OPCUA) {
+
+    break;
+    }
+    case DeviceEnum.OPCUA: {
         if (!OpcUAclient) {
             return null;
         }
         comm = OpcUAclient.create(data, logger, events, manager);
-    } else if (data.type === DeviceEnum.ModbusRTU || data.type === DeviceEnum.ModbusTCP) {
+
+    break;
+    }
+    case DeviceEnum.ModbusRTU:
+    case DeviceEnum.ModbusTCP: {
         if (!MODBUSclient) {
             return null;
         }
         comm = MODBUSclient.create(data, logger, events, manager);        
-    } else if (data.type === DeviceEnum.BACnet) {
+
+    break;
+    }
+    case DeviceEnum.BACnet: {
         if (!BACNETclient) {
             return null;
         }
         comm = BACNETclient.create(data, logger, events, manager);        
-    } else if (data.type === DeviceEnum.WebAPI) {
+
+    break;
+    }
+    case DeviceEnum.WebAPI: {
         if (!HTTPclient) {
             return null;
         }
         comm = HTTPclient.create(data, logger, events, manager);        
-    } else if (data.type === DeviceEnum.MQTTclient) {
+
+    break;
+    }
+    case DeviceEnum.MQTTclient: {
         if (!MQTTclient) {
             return null;
         }
         comm = MQTTclient.create(data, logger, events, manager);        
-    } else if (data.type === DeviceEnum.EthernetIP) {
+
+    break;
+    }
+    case DeviceEnum.EthernetIP: {
         if (!EthernetIPclient) {
             return null;
         }
         comm = EthernetIPclient.create(data, logger, events, manager);     
-    } else if (data.type === DeviceEnum.FuxaServer) {
+
+    break;
+    }
+    case DeviceEnum.FuxaServer: {
         if (!FuxaServer) {
             return null;
         }
         comm = FuxaServer.create(data, logger, events, manager);     
+
+    break;
+    }
+    // No default
     }
     // else if (data.type === DeviceEnum.Template) {
     //     if (!TEMPLATEclient) {
@@ -125,9 +152,9 @@ function Device(data, runtime) {
         if (status === DeviceStatusEnum.INIT && currentCmd === DeviceCmdEnum.START) {
             this.connect().then(function () {
                 status = DeviceStatusEnum.IDLE;
-            }).catch(function (err) {
-                if (err) {
-                    console.error(err);
+            }).catch(function (error) {
+                if (error) {
+                    console.error(error);
                 }
                 // devices.woking = null;
             });
@@ -214,26 +241,37 @@ function Device(data, runtime) {
      */
     this.browse = function (path, callback) {
         return new Promise(function (resolve, reject) {
-            if (data.type === DeviceEnum.OPCUA) {
+            switch (data.type) {
+            case DeviceEnum.OPCUA: {
                 comm.browse(path).then(function (result) {
                     resolve(result);
-                }).catch(function (err) {
-                    reject(err);
+                }).catch(function (error) {
+                    reject(error);
                 });
-            } else if (data.type === DeviceEnum.BACnet) {
+
+            break;
+            }
+            case DeviceEnum.BACnet: {
                 comm.browse(path).then(function (result) {
                     resolve(result);
-                }).catch(function (err) {
-                    reject(err);
+                }).catch(function (error) {
+                    reject(error);
                 });
-            } else if (data.type === DeviceEnum.MQTTclient) {
+
+            break;
+            }
+            case DeviceEnum.MQTTclient: {
                 comm.browse(path, callback).then(function (result) {
                     resolve(result);
-                }).catch(function (err) {
-                    reject(err);
+                }).catch(function (error) {
+                    reject(error);
                 });
-            } else {
+
+            break;
+            }
+            default: {
                 reject('Browse not supported!');
+            }
             }
         });
     }
@@ -246,8 +284,8 @@ function Device(data, runtime) {
             if (data.type === DeviceEnum.OPCUA) {
                 comm.readAttribute(node).then(function (result) {
                     resolve(result);
-                }).catch(function (err) {
-                    reject(err);
+                }).catch(function (error) {
+                    reject(error);
                 });
             } else {
                 reject('Read Node attribute not supported!');
@@ -263,8 +301,8 @@ function Device(data, runtime) {
             if (data.type === DeviceEnum.WebAPI && comm.getTagsProperty) {
                 comm.getTagsProperty().then(function (result) {
                     resolve(result);
-                }).catch(function (err) {
-                    reject(err);
+                }).catch(function (error) {
+                    reject(error);
                 });
             } else {
                 reject('Get Tags Property not supported!');
@@ -306,12 +344,12 @@ function Device(data, runtime) {
                 current = 0;
             }
             if (fnc[0] === 'add') {
-                return parseFloat(current) + parseFloat(fnc[1]);
+                return Number.parseFloat(current) + Number.parseFloat(fnc[1]);
             } else if (fnc[0] === 'remove') {
-                return parseFloat(current) - parseFloat(fnc[1]);
+                return Number.parseFloat(current) - Number.parseFloat(fnc[1]);
             }     
-        } catch (err) {
-            console.error(err);
+        } catch (error) {
+            console.error(error);
         }
         return value;
     }
@@ -329,8 +367,8 @@ function getSupportedProperty(endpoint, type) {
         if (type === DeviceEnum.OPCUA) {
             OpcUAclient.getEndPoints(endpoint).then(function (result) {
                 resolve(result);
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         } else {
             reject('getSupportedProperty not supported!');
@@ -347,8 +385,8 @@ function getRequestResult(property) {
         if (HTTPclient) {
             HTTPclient.getRequestResult(property).then(function (result) {
                 resolve(result);
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         } else {
             reject('getRequestResult not supported!');
@@ -367,17 +405,34 @@ function loadPlugin(type, module) {
         OpcUAclient = require(module);
     } else if (DeviceEnum.ModbusTCP.startsWith(type)) {
         MODBUSclient = require(module);
-    } else if (type === DeviceEnum.BACnet) {
+    } else switch (type) {
+ case DeviceEnum.BACnet: {
         BACNETclient = require(module);
-    } else if (type === DeviceEnum.WebAPI) {
+
+ break;
+ }
+ case DeviceEnum.WebAPI: {
         HTTPclient = require(module);
-    } else if (type === DeviceEnum.MQTTclient) {
+
+ break;
+ }
+ case DeviceEnum.MQTTclient: {
         MQTTclient = require(module);
-    } else if (type === DeviceEnum.EthernetIP) {
+
+ break;
+ }
+ case DeviceEnum.EthernetIP: {
         EthernetIPclient = require(module);
-    } else if (type === DeviceEnum.FuxaServer) {
+
+ break;
+ }
+ case DeviceEnum.FuxaServer: {
         FuxaServer = require(module);
-    }
+
+ break;
+ }
+ // No default
+ }
 }
 
 function isInternal(device) {

@@ -58,8 +58,8 @@ function MQTTclient(_data, _logger, _events) {
                             _createSubscription().then(() => {
                                 resolve();
                                 _checkWorking(false);
-                            }).catch(function (err) {
-                                reject(err);
+                            }).catch(function (error) {
+                                reject(error);
                                 _checkWorking(false);
                             });
                             _createRefPublishReceiver();
@@ -87,8 +87,8 @@ function MQTTclient(_data, _logger, _events) {
                     } else {
                         reject();
                     }
-                } catch (err) {
-                    logger.error(`'${data.name}' try to connect error! ${err}`);
+                } catch (error) {
+                    logger.error(`'${data.name}' try to connect error! ${error}`);
                     _checkWorking(false);
                     _emitStatus('connect-error');
                     _clearVarsValue();
@@ -138,14 +138,14 @@ function MQTTclient(_data, _logger, _events) {
             if (client) {
                 try {
                     var varsValueChanged = _checkVarsChanged();
-                    lastTimestampValue = new Date().getTime();
+                    lastTimestampValue = Date.now();
                     _emitValues(varsValue);
 
                     if (this.addDaq) {
                         this.addDaq(varsValueChanged, data.name);
                     }
-                } catch (err) {
-                    logger.error(`'${data.name}' polling error: ${err}`);
+                } catch (error) {
+                    logger.error(`'${data.name}' polling error: ${error}`);
                 }
                 _checkWorking(false);
             } else {
@@ -191,10 +191,9 @@ function MQTTclient(_data, _logger, _events) {
                 } else {
                     resolve('ok');
                 }
-                browser.subscribe(topic, function () {
-                });
-            } catch (err) {
-                reject('browse-error: ' + err);
+                browser.subscribe(topic, function () {});
+            } catch (error) {
+                reject('browse-error: ' + error);
             }
         });
     }
@@ -233,7 +232,7 @@ function MQTTclient(_data, _logger, _events) {
             // map depending tag ids
             for (var key in data.tags) {
                 if (data.tags[key].options && data.tags[key].options.pubs) {
-                    data.tags[key].options.pubs.forEach(item => {
+                    for (const item of data.tags[key].options.pubs) {
                         if (item.type === 'tag' && item.value) {
                             // topic with json data with value from other device tags 
                             if (!memoryTagToPublish.has(item.value)) {
@@ -248,12 +247,12 @@ function MQTTclient(_data, _logger, _events) {
                             // raw data (not depending from other tag)
                             item.value = '';
                         }
-                    });
+                    }
                 }
             }
             logger.info(`'${data.name}' data loaded (${count})`, true);
-        } catch (err) {
-            logger.error(`'${data.name}' load error! ${err}`);
+        } catch (error) {
+            logger.error(`'${data.name}' load error! ${error}`);
         }
     }
 
@@ -283,12 +282,12 @@ function MQTTclient(_data, _logger, _events) {
             if (tag) {
                 if (tag.options) {
                     if (tag.options.pubs) {
-                        tag.options.pubs.forEach(item => {
+                        for (const item of tag.options.pubs) {
                             if (item.type === 'value') {
                                 item.value = value;
                             }
-                        })
-                    } else if (tag.options.subs && tag.options.subs.indexOf(tag.memaddress) !== -1) {
+                        }
+                    } else if (tag.options.subs && tag.options.subs.includes(tag.memaddress)) {
                         tag.value = value;
                     }
                 }
@@ -327,7 +326,7 @@ function MQTTclient(_data, _logger, _events) {
         return new Promise(function (resolve, reject) {
             var topics = Object.values(data.tags).map(t => t.address);
             _mapTopicsAddress(Object.values(data.tags));
-            if (topics && topics.length) {
+            if (topics && topics.length > 0) {
                 client.subscribe(topics, function (err) {
                     if (err) {
                         reject(err);
@@ -338,18 +337,14 @@ function MQTTclient(_data, _logger, _events) {
                                     var id = topicsMap[topicAddr][i].id;
                                     var oldvalue = data.tags[id].value;
                                     data.tags[id].value = msg.toString();
-                                    data.tags[id].timestamp = new Date().getTime();
+                                    data.tags[id].timestamp = Date.now();
                                     data.tags[id].changed = oldvalue !== data.tags[id].value;
                                     if (data.tags[id].type === 'json' && data.tags[id].options && data.tags[id].options.subs && data.tags[id].memaddress) {
                                         try {
                                             var subitems = JSON.parse(data.tags[id].value);
-                                            if (!utils.isNullOrUndefined(subitems[data.tags[id].memaddress])) {
-                                                data.tags[id].value = subitems[data.tags[id].memaddress];
-                                            } else {
-                                                data.tags[id].value = oldvalue;
-                                            }
-                                        } catch (err) {
-                                            console.error(err);
+                                            data.tags[id].value = utils.isNullOrUndefined(subitems[data.tags[id].memaddress]) ? oldvalue : subitems[data.tags[id].memaddress];
+                                        } catch (error) {
+                                            console.error(error);
                                         }
                                     }
                                 }
@@ -374,18 +369,16 @@ function MQTTclient(_data, _logger, _events) {
                     // for topic with raw data (not depending from other tag)
                     var oldValue = memoryTagToPublish.get(event.id);
                     memoryTagToPublish.set(event.id, event.value);
-                    if (oldValue !== event.value && refTagToTopics[event.id]) {
-                        if (refTagToTopics[event.id].topics.length) {
+                    if (oldValue !== event.value && refTagToTopics[event.id] && refTagToTopics[event.id].topics.length > 0) {
                             // for topic with json data with value from other device tags
                             // set the tag value in memory and publish the topic
                             for (var i = 0; i < refTagToTopics[event.id].topics.length; i++) {
                                 _publishValues([refTagToTopics[event.id].topics[i]]);
                             }
                         }
-                    }
                 }
-            } catch (err) {
-                console.error(err);
+            } catch (error) {
+                console.error(error);
             }
         });
     }
@@ -395,11 +388,11 @@ function MQTTclient(_data, _logger, _events) {
      */
     var _mapTopicsAddress = function (topics) {
         var tmap = {};
-        for (var i = 0; i < topics.length; i++) {
-            if (tmap[topics[i].address]) {
-                tmap[topics[i].address].push(topics[i]);
+        for (const topic of topics) {
+            if (tmap[topic.address]) {
+                tmap[topic.address].push(topic);
             } else {
-                tmap[topics[i].address] = [topics[i]];
+                tmap[topic.address] = [topic];
             }
         }
         topicsMap = tmap;
@@ -420,7 +413,7 @@ function MQTTclient(_data, _logger, _events) {
      * Return the Topics to publish that have value changed and clear value changed flag of all Topics 
      */
      var _checkVarsChanged = () => {
-        const timestamp = new Date().getTime();
+        const timestamp = Date.now();
         var result = {};
         for (var id in data.tags) {
             if (this.addDaq && !utils.isNullOrUndefined(data.tags[id].value) && deviceUtils.tagDaqToSave(data.tags[id], timestamp)) {
@@ -461,8 +454,8 @@ function MQTTclient(_data, _logger, _events) {
             if (overloading >= 3) {
                 try {
                     if (client) client.end(true);
-                } catch (e) {
-                    console.error(e);
+                } catch (error) {
+                    console.error(error);
                 }
             } else {
                 return false;
@@ -484,7 +477,7 @@ function MQTTclient(_data, _logger, _events) {
             if (browser && browser.connected) {
                 browser.end(true);
             }
-        }, 15000);
+        }, 15_000);
     }
 
     /**
@@ -493,12 +486,12 @@ function MQTTclient(_data, _logger, _events) {
      * @param {*} tags 
      */
     var _publishValues = function (tags) {
-        Object.keys(tags).forEach(key => {
+        for (const key of Object.keys(tags)) {
             try {
                 // publish only tags with pubs and value changed
-                if (tags[key].options && tags[key].options.pubs && tags[key].options.pubs.length) {
+                if (tags[key].options && tags[key].options.pubs && tags[key].options.pubs.length > 0) {
                     var topicTopuplish = {};
-                    tags[key].options.pubs.forEach(item => {
+                    for (const item of tags[key].options.pubs) {
                         var value = '';
                         if (item.type === 'tag' && item.value) {        // tag from other devices
                             if (memoryTagToPublish.has(item.value)) {
@@ -519,14 +512,14 @@ function MQTTclient(_data, _logger, _events) {
                             }
                             topicTopuplish[0] = value;
                         }
-                    });
+                    }
                     // payloand
                     if (tags[key].type === 'json') {
                         client.publish(tags[key].address, JSON.stringify(topicTopuplish));
                     } else if (topicTopuplish[0]) { // payloand with row data
                         client.publish(tags[key].address, Object.values(topicTopuplish)[0].toString());
                     }
-                } else if (tags[key].type === 'json' && tags[key].options && tags[key].options.subs && tags[key].options.subs.length) {
+                } else if (tags[key].type === 'json' && tags[key].options && tags[key].options.subs && tags[key].options.subs.length > 0) {
                     let obj = {};
                     obj[tags[key].memaddress] = tags[key].value;
                     client.publish(tags[key].address, JSON.stringify(obj));
@@ -534,10 +527,10 @@ function MQTTclient(_data, _logger, _events) {
                     client.publish(tags[key].address, tags[key].value.toString());
                     tags[key].value = null;
                 }
-            } catch (err) {
-                console.error(err);
+            } catch (error) {
+                console.error(error);
             }
-        })
+        }
     }
 }
 

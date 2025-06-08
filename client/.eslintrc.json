@@ -1,59 +1,78 @@
 {
-    "root": true,
-    "ignorePatterns": [
-        "**/node_modules/**"
-    ],
-    "overrides": [
-        {
-            "files": [
-                "*.ts"
-            ],
-            "plugins": ["unused-imports"],
-            "parserOptions": {
-                "project": "./tsconfig.json",
-                "createDefaultProgram": true
-            },
-            "extends": [
-                "plugin:@angular-eslint/recommended",
-                "plugin:@angular-eslint/ng-cli-compat--formatting-add-on",
-                "plugin:@angular-eslint/template/process-inline-templates"
-            ],
-            "rules": {
-                "max-len": "off",
-                "@angular-eslint/no-output-on-prefix": "off",
-                "@typescript-eslint/member-ordering": "off",
-                "@angular-eslint/no-input-rename": "off",
-                "@angular-eslint/no-output-rename": "off",
-                "@typescript-eslint/naming-convention": "off",
-                "@typescript-eslint/consistent-type-definitions": "error",
-                "@angular-eslint/no-output-native": "off",
-                "@angular-eslint/component-selector": [
-                    "off",
-                    {
-                        "type": "element",
-                        "prefix": "app",
-                        "style": "kebab-case"
-                    }
-                ],
-                "@angular-eslint/directive-selector": [
-                    "off",
-                    {
-                        "type": "attribute",
-                        "prefix": "app",
-                        "style": "camelCase"
-                    }
-                ],
-                "unused-imports/no-unused-imports": "error"
-            }
-        },
-        {
-            "files": [
-                "*.html"
-            ],
-            "extends": [
-                "plugin:@angular-eslint/template/recommended"
-            ],
-            "rules": {}
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module",
+    "project": ["./src/tsconfig.app.json", "./src/tsconfig.spec.json"],
+    "createDefaultProgram": true
+  },
+  "plugins": [
+    "@typescript-eslint",
+    "@angular-eslint"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@angular-eslint/recommended",
+    "plugin:@angular-eslint/template/process-inline-templates"
+  ],
+  "rules": {
+    // Common TSLint rules
+    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/explicit-member-accessibility": [
+      "warn",
+      {
+        "accessibility": "explicit",
+        "overrides": {
+          "constructors": "no-public"
         }
-    ]
+      }
+    ],
+    "@typescript-eslint/no-inferrable-types": "off",
+    // Angular specific rules
+    "@angular-eslint/component-class-suffix": "error",
+    "@angular-eslint/component-selector": [
+      "error",
+      {
+        "type": "element",
+        "prefix": "app",
+        "style": "kebab-case"
+      }
+    ],
+    "@angular-eslint/directive-class-suffix": "error",
+    "@angular-eslint/directive-selector": [
+      "error",
+      {
+        "type": "attribute",
+        "prefix": "app",
+        "style": "camelCase"
+      }
+    ],
+    "@angular-eslint/no-input-rename": "error",
+    "@angular-eslint/no-output-rename": "error",
+    "@angular-eslint/use-pipe-transform-interface": "error",
+    // Custom rules for complexity, duplication, error handling (examples)
+    "complexity": ["warn", { "max": 10 }], // Cyclomatic complexity
+    "no-duplicate-imports": "error",
+    "no-empty-function": ["error", { "allow": ["constructors"] }],
+    "no-alert": "error", // Discourage alert, confirm, prompt
+    "@typescript-eslint/no-throw-literal": "warn", // Enforce throwing Error objects
+    "@typescript-eslint/no-floating-promises": "warn",
+    "prefer-const": "warn"
+    // Add or adjust more rules as needed
+  },
+  "overrides": [
+    {
+      "files": ["*.html"],
+      "parser": "@angular-eslint/template-parser",
+      "plugins": ["@angular-eslint/template"],
+      "rules": {
+        "@angular-eslint/template/banana-in-a-box": "error",
+        "@angular-eslint/template/no-negated-async": "error"
+        // Add other template rules here
+      }
+    }
+  ]
 }

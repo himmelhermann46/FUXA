@@ -5,8 +5,8 @@
 
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 var sqlite3 = require('sqlite3').verbose();
 
 var settings        // Application settings
@@ -78,9 +78,7 @@ function clearAlarms(all) {
  */
 function getAlarms() {
     return new Promise(function (resolve, reject) {
-        if (!db_alarms) {
-            reject(false);
-        } else {
+        if (db_alarms) {
             var sql = "SELECT * FROM alarms";
             db_alarms.all(sql, function (err, rows) {
                 if (err) {
@@ -89,6 +87,8 @@ function getAlarms() {
                     resolve(rows);
                 }
             });
+        } else {
+            reject(false);
         }
     });
 }
@@ -98,9 +98,7 @@ function getAlarms() {
  */
  function getAlarmsHistory(from, to) {
     return new Promise(function (resolve, reject) {
-        if (!db_alarms) {
-            reject(false);
-        } else {
+        if (db_alarms) {
             var start = from || 0;
             var end = to || Number.MAX_SAFE_INTEGER;
             var sql = "SELECT * FROM chronicle WHERE ontime BETWEEN ? and ? ORDER BY ontime DESC";
@@ -111,6 +109,8 @@ function getAlarms() {
                     resolve(rows);
                 }
             });
+        } else {
+            reject(false);
         }
     });
 }
@@ -121,9 +121,9 @@ function getAlarms() {
 function setAlarms(alarms) {
     return new Promise(function (resolve, reject) {
         // prepare query
-        if (alarms && alarms.length) {
+        if (alarms && alarms.length > 0) {
             var sql = "";
-            alarms.forEach(alr => {
+            for (const alr of alarms) {
                 let grp = alr.subproperty.group || '';
                 let status = alr.status || '';
                 let userack = alr.userack || '';
@@ -137,7 +137,7 @@ function setAlarms(alarms) {
                     //is alarm to be removed (if it is ok) delete it from db
                     sql += "DELETE FROM alarms WHERE nametype = '" + alr.getId() + "';";
                 }
-            });
+            }
             db_alarms.exec(sql, function (err) {
                 if (err) {
                     logger.error('alarmsstorage.failed-to-set: ' + err);
