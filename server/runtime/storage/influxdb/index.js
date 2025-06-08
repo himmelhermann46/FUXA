@@ -60,8 +60,8 @@ function Influx(_settings, _log) {
             writeApi.close().then(() => {
                 logger.info('influxdb-close FINISHED');
             })
-            .catch((e) => {
-                logger.error(`influxdb-close failed! ${e}`);
+            .catch((error) => {
+                logger.error(`influxdb-close failed! ${error}`);
             });
         } catch (error) {
             logger.error(`influxdb-close failed! ${error}`);
@@ -147,7 +147,7 @@ function Influx(_settings, _log) {
 
     function setError(error) {
         influxError.error = error;
-        influxError.timestamp = new Date().getTime();
+        influxError.timestamp = Date.now();
     }
 
     this.init();

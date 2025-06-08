@@ -50,7 +50,7 @@ function init(_io, _api, _settings, _log, eventsMain) {
     plugins.init(settings, logger).then(result => {
         logger.info('runtime init plugins successful!', true);
         events.emit('init-plugins-ok');
-    }).catch(function (err) {
+    }).catch(function (error) {
         logger.error('runtime.failed-to-init plugins');
     });
 
@@ -58,14 +58,14 @@ function init(_io, _api, _settings, _log, eventsMain) {
     users.init(settings, logger).then(result => {
         logger.info('runtime init users successful!', true);
         events.emit('init-users-ok');
-    }).catch(function (err) {
+    }).catch(function (error) {
         logger.error('runtime.failed-to-init users');
     });
 
     project.init(settings, logger).then(result => {
         logger.info('runtime init project successful!', true);
         events.emit('init-project-ok');
-    }).catch(function (err) {
+    }).catch(function (error) {
         logger.error('runtime.failed-to-init project');
     });
     alarmsMgr = alarms.create(runtime);
@@ -102,9 +102,9 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     devices.getSupportedProperty(message.endpoint, message.type).then(result => {
                         message.result = result;
                         io.emit(Events.IoEventTypes.DEVICE_PROPERTY, message);
-                    }).catch(function (err) {
-                        logger.error(`${Events.IoEventTypes.DEVICE_PROPERTY}: ${err}`);
-                        message.error = err;
+                    }).catch(function (error) {
+                        logger.error(`${Events.IoEventTypes.DEVICE_PROPERTY}: ${error}`);
+                        message.error = error;
                         io.emit(Events.IoEventTypes.DEVICE_PROPERTY, message);
                     });
                 } else {
@@ -112,8 +112,8 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     message.error = 'wrong message';
                     io.emit(Events.IoEventTypes.DEVICE_PROPERTY, message);
                 }
-            } catch (err) {
-                logger.error(`${Events.IoEventTypes.DEVICE_PROPERTY}: ${err}`);
+            } catch (error) {
+                logger.error(`${Events.IoEventTypes.DEVICE_PROPERTY}: ${error}`);
             }
         });
         // client ask device values
@@ -128,53 +128,49 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     devices.setDeviceValue(message.var.source, message.var.id, message.var.value, message.fnc);
                     // logger.info(`${Events.IoEventTypes.DEVICE_VALUES}: ${message.var.source} ${message.var.id} = ${message.var.value}`);
                 }
-            } catch (err) {
-                logger.error(`${Events.IoEventTypes.DEVICE_VALUES}: ${err}`);
+            } catch (error) {
+                logger.error(`${Events.IoEventTypes.DEVICE_VALUES}: ${error}`);
             }
         });
         // client ask device browse
         socket.on(Events.IoEventTypes.DEVICE_BROWSE, (message) => {
             try {
-                if (message) {
-                    if (message.device) {
+                if (message && message.device) {
                         devices.browseDevice(message.device, message.node, function (nodes) { 
                             io.emit(Events.IoEventTypes.DEVICE_BROWSE, nodes);
                         }).then(result => {
                             message.result = result;
                             io.emit(Events.IoEventTypes.DEVICE_BROWSE, message);
-                        }).catch(function (err) {
-                            logger.error(`${Events.IoEventTypes.DEVICE_BROWSE}: ${err}`);
-                            message.error = err;
+                        }).catch(function (error) {
+                            logger.error(`${Events.IoEventTypes.DEVICE_BROWSE}: ${error}`);
+                            message.error = error;
                             io.emit(Events.IoEventTypes.DEVICE_BROWSE, message);
                         });
                     }
-                }
-            } catch (err) {
-                logger.error(`${Events.IoEventTypes.DEVICE_BROWSE}: ${err}`);
+            } catch (error) {
+                logger.error(`${Events.IoEventTypes.DEVICE_BROWSE}: ${error}`);
             }
         });
         // client ask device node attribute
         socket.on(Events.IoEventTypes.DEVICE_NODE_ATTRIBUTE, (message) => {
             try {
-                if (message) {
-                    if (message.device) {
+                if (message && message.device) {
                         devices.readNodeAttribute(message.device, message.node).then(result => {
                             io.emit(Events.IoEventTypes.DEVICE_NODE_ATTRIBUTE, message);
-                        }).catch(function (err) {
-                            logger.error(`${Events.IoEventTypes.DEVICE_NODE_ATTRIBUTE}: ${err}`);
-                            message.error = err;
+                        }).catch(function (error) {
+                            logger.error(`${Events.IoEventTypes.DEVICE_NODE_ATTRIBUTE}: ${error}`);
+                            message.error = error;
                             io.emit(Events.IoEventTypes.DEVICE_NODE_ATTRIBUTE, message);
                         });
                     }
-                }
-            } catch (err) {
-                logger.error(`${Events.IoEventTypes.DEVICE_NODE_ATTRIBUTE}: ${err}`);
+            } catch (error) {
+                logger.error(`${Events.IoEventTypes.DEVICE_NODE_ATTRIBUTE}: ${error}`);
             }
         });
         // client query DAQ values
         socket.on(Events.IoEventTypes.DAQ_QUERY, (msg) => {
             try {
-                if (msg && msg.from && msg.to && msg.sids && msg.sids.length) {
+                if (msg && msg.from && msg.to && msg.sids && msg.sids.length > 0) {
                     var dbfncs = [];
                     for (let i = 0; i < msg.sids.length; i++) {
                         dbfncs.push(daqstorage.getNodeValues(msg.sids[i], msg.from, msg.to));
@@ -182,17 +178,17 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     var result = {};
                     Promise.all(dbfncs).then(values => {
                         io.emit(Events.IoEventTypes.DAQ_RESULT, { gid: msg.gid, values: values });
-                    }, reason => {
-                        if (reason && reason.stack) {
-                            logger.error(`${Events.IoEventTypes.DAQ_QUERY}: ${reason.stack}`);
+                    }, error => {
+                        if (error && error.stack) {
+                            logger.error(`${Events.IoEventTypes.DAQ_QUERY}: ${error.stack}`);
                         } else {
-                            logger.error(`${Events.IoEventTypes.DAQ_QUERY}: ${reason}`);
+                            logger.error(`${Events.IoEventTypes.DAQ_QUERY}: ${error}`);
                         }
-                        io.emit(Events.IoEventTypes.DAQ_ERROR, { gid: msg.gid, error: reason });
+                        io.emit(Events.IoEventTypes.DAQ_ERROR, { gid: msg.gid, error: error });
                     });
                 }
-            } catch (err) {
-                logger.error(`${Events.IoEventTypes.DAQ_QUERY}: ${err}`);
+            } catch (error) {
+                logger.error(`${Events.IoEventTypes.DAQ_QUERY}: ${error}`);
             }
         });
         // client ask alarms status
@@ -209,9 +205,9 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     utils.getHostInterfaces().then(result => {
                         message.result = result;
                         io.emit(Events.IoEventTypes.HOST_INTERFACES, message);
-                    }).catch(function (err) {
-                        logger.error(`${Events.IoEventTypes.HOST_INTERFACES}: ${err}`);
-                        message.error = err;
+                    }).catch(function (error) {
+                        logger.error(`${Events.IoEventTypes.HOST_INTERFACES}: ${error}`);
+                        message.error = error;
                         io.emit(Events.IoEventTypes.HOST_INTERFACES, message);
                     });
                 } else {
@@ -219,8 +215,8 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     message.error = 'wrong message';
                     io.emit(Events.IoEventTypes.HOST_INTERFACES, message);
                 }
-            } catch (err) {
-                logger.error(`${Events.IoEventTypes.HOST_INTERFACES}: ${err}`);
+            } catch (error) {
+                logger.error(`${Events.IoEventTypes.HOST_INTERFACES}: ${error}`);
             }
         });
         // client ask device webapi request and return result
@@ -230,9 +226,9 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     devices.getRequestResult(message.property).then(result => {
                         message.result = result;
                         io.emit(Events.IoEventTypes.DEVICE_WEBAPI_REQUEST, message);
-                    }).catch(function (err) {
-                        logger.error(`${Events.IoEventTypes.DEVICE_WEBAPI_REQUEST}: ${err}`);
-                        message.error = err;
+                    }).catch(function (error) {
+                        logger.error(`${Events.IoEventTypes.DEVICE_WEBAPI_REQUEST}: ${error}`);
+                        message.error = error;
                         io.emit(Events.IoEventTypes.DEVICE_WEBAPI_REQUEST, message);
                     });
                 } else {
@@ -240,8 +236,8 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     message.error = 'wrong message';
                     io.emit(Events.IoEventTypes.DEVICE_WEBAPI_REQUEST, message);
                 }
-            } catch (err) {
-                logger.error(`${Events.IoEventTypes.DEVICE_WEBAPI_REQUEST}: ${err}`);
+            } catch (error) {
+                logger.error(`${Events.IoEventTypes.DEVICE_WEBAPI_REQUEST}: ${error}`);
             }
         });
         // client ask device tags configurtions, used for connections that load tags dinamically (webapi)
@@ -251,9 +247,9 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     devices.getDeviceTagsResult(message.deviceId).then(result => {
                         message.result = result;
                         io.emit(Events.IoEventTypes.DEVICE_TAGS_REQUEST, message);
-                    }).catch(function (err) {
-                        logger.error(`${Events.IoEventTypes.DEVICE_TAGS_REQUEST}: ${err}`);
-                        message.error = err;
+                    }).catch(function (error) {
+                        logger.error(`${Events.IoEventTypes.DEVICE_TAGS_REQUEST}: ${error}`);
+                        message.error = error;
                         io.emit(Events.IoEventTypes.DEVICE_TAGS_REQUEST, message);
                     });
                 } else {
@@ -261,8 +257,8 @@ function init(_io, _api, _settings, _log, eventsMain) {
                     message.error = 'wrong message';
                     io.emit(Events.IoEventTypes.DEVICE_TAGS_REQUEST, message);
                 }
-            } catch (err) {
-                logger.error(`${Events.IoEventTypes.DEVICE_TAGS_REQUEST}: ${err}`);
+            } catch (error) {
+                logger.error(`${Events.IoEventTypes.DEVICE_TAGS_REQUEST}: ${error}`);
             }
         });        
     });
@@ -275,40 +271,40 @@ function start() {
             // start to comunicate with devices
             devices.start().then(function () {
                 resolve(true);
-            }).catch(function (err) {
-                logger.error('runtime.failed-to-start-devices: ' + err);
+            }).catch(function (error) {
+                logger.error('runtime.failed-to-start-devices: ' + error);
                 reject();
             });
             // start alarms manager
             alarmsMgr.start().then(function () {
                 resolve(true);
-            }).catch(function (err) {
-                logger.error('runtime.failed-to-start-alarms: ' + err);
+            }).catch(function (error) {
+                logger.error('runtime.failed-to-start-alarms: ' + error);
                 reject();
             });
             // start notificator manager
             notificatorMgr.start().then(function () {
                 resolve(true);
-            }).catch(function (err) {
-                logger.error('runtime.failed-to-start-notificator: ' + err);
+            }).catch(function (error) {
+                logger.error('runtime.failed-to-start-notificator: ' + error);
                 reject();
             });
             // start scripts manager
             scriptsMgr.start().then(function () {
                 resolve(true);
-            }).catch(function (err) {
-                logger.error('runtime.failed-to-start-scripts: ' + err);
+            }).catch(function (error) {
+                logger.error('runtime.failed-to-start-scripts: ' + error);
                 reject();
             });
             // start jobs manager
             jobsMgr.start().then(function () {
                 resolve(true);
-            }).catch(function (err) {
-                logger.error('runtime.failed-to-start-jobs: ' + err);
+            }).catch(function (error) {
+                logger.error('runtime.failed-to-start-jobs: ' + error);
                 reject();
             });            
-        }).catch(function (err) {
-            logger.error('runtime.failed-to-start: ' + err);
+        }).catch(function (error) {
+            logger.error('runtime.failed-to-start: ' + error);
             reject();
         });
     });
@@ -316,25 +312,20 @@ function start() {
 
 function stop() {
     return new Promise(function (resolve, reject) {
-        devices.stop().then(function () {
-        }).catch(function (err) {
-            logger.error('runtime.failed-to-stop-devices: ' + err);
+        devices.stop().then(function () {}).catch(function (error) {
+            logger.error('runtime.failed-to-stop-devices: ' + error);
         });
-        alarmsMgr.stop().then(function () {
-        }).catch(function (err) {
-            logger.error('runtime.failed-to-stop-alarms: ' + err);
+        alarmsMgr.stop().then(function () {}).catch(function (error) {
+            logger.error('runtime.failed-to-stop-alarms: ' + error);
         });
-        notificatorMgr.stop().then(function () {
-        }).catch(function (err) {
-            logger.error('runtime.failed-to-stop-notificatorMgr: ' + err);
+        notificatorMgr.stop().then(function () {}).catch(function (error) {
+            logger.error('runtime.failed-to-stop-notificatorMgr: ' + error);
         });
-        scriptsMgr.stop().then(function () {
-        }).catch(function (err) {
-            logger.error('runtime.failed-to-stop-scriptsMgr: ' + err);
+        scriptsMgr.stop().then(function () {}).catch(function (error) {
+            logger.error('runtime.failed-to-stop-scriptsMgr: ' + error);
         });
-        jobsMgr.stop().then(function () {
-        }).catch(function (err) {
-            logger.error('runtime.failed-to-stop-jobsMgr: ' + err);
+        jobsMgr.stop().then(function () {}).catch(function (error) {
+            logger.error('runtime.failed-to-stop-jobsMgr: ' + error);
         });        
         resolve(true);
     });
@@ -343,30 +334,56 @@ function stop() {
 function update(cmd, data) {
     return new Promise(function (resolve, reject) {
         try {
-            if (cmd === project.ProjectDataCmdType.SetDevice) {
+            switch (cmd) {
+            case project.ProjectDataCmdType.SetDevice: {
                 devices.updateDevice(data);
                 alarmsMgr.reset();
-            } else if (cmd === project.ProjectDataCmdType.DelDevice) {
+
+            break;
+            }
+            case project.ProjectDataCmdType.DelDevice: {
                 devices.removeDevice(data);
                 alarmsMgr.reset();
-            } else if (cmd === project.ProjectDataCmdType.SetAlarm || cmd === project.ProjectDataCmdType.DelAlarm) {
+
+            break;
+            }
+            case project.ProjectDataCmdType.SetAlarm:
+            case project.ProjectDataCmdType.DelAlarm: {
                 alarmsMgr.reset();
                 notificatorMgr.reset();
-            } else if (cmd === project.ProjectDataCmdType.SetNotification || cmd === project.ProjectDataCmdType.DelNotification) {
+
+            break;
+            }
+            case project.ProjectDataCmdType.SetNotification:
+            case project.ProjectDataCmdType.DelNotification: {
                 notificatorMgr.reset();
-            } else if (cmd === project.ProjectDataCmdType.SetScript) {
+
+            break;
+            }
+            case project.ProjectDataCmdType.SetScript: {
                 scriptsMgr.updateScript(data);
-            } else if (cmd === project.ProjectDataCmdType.DelScript) {
+
+            break;
+            }
+            case project.ProjectDataCmdType.DelScript: {
                 scriptsMgr.removeScript(data);
-            } else if (cmd === project.ProjectDataCmdType.SetReport || cmd === project.ProjectDataCmdType.DelReport) {
+
+            break;
+            }
+            case project.ProjectDataCmdType.SetReport:
+            case project.ProjectDataCmdType.DelReport: {
                 jobsMgr.reset();
+
+            break;
+            }
+            // No default
             }
             resolve(true);
-        } catch (err) {
-            if (err.stack) {
-                logger.error(err.stack);
+        } catch (error) {
+            if (error.stack) {
+                logger.error(error.stack);
             } else {
-                logger.error(err);
+                logger.error(error);
             }
             reject();
         }
@@ -385,19 +402,19 @@ function restart(clear) {
                 start().then(function () {
                     logger.info('runtime.update-project: restart!');
                     resolve(true);
-                }).catch(function (err) {
-                    logger.error('runtime.update-project-start: ' + err);
+                }).catch(function (error) {
+                    logger.error('runtime.update-project-start: ' + error);
                     reject();
                 });
-            }).catch(function (err) {
-                logger.error('runtime.update-project-stop: ' + err);
+            }).catch(function (error) {
+                logger.error('runtime.update-project-stop: ' + error);
                 reject();
             });
-        } catch (err) {
-            if (err.stack) {
-                logger.error(err.stack);
+        } catch (error) {
+            if (error.stack) {
+                logger.error(error.stack);
             } else {
-                logger.error(err);
+                logger.error(error);
             }
             reject();
         }
@@ -417,20 +434,18 @@ function updateDeviceValues(event) {
     try {
         let values = Object.values(event.values);
         io.emit(Events.IoEventTypes.DEVICE_VALUES, { id: event.id, values: values });
-        tagsSubscription.forEach((key, value) => {
+        for (const [value, key] of tagsSubscription.entries()) {
             if (event.values[value]) {
                 events.emit('tag-value:changed', event.values[value]);
             }
-        });
-    } catch (err) {
-    }
+        }
+    } catch {}
 }
 
 function subscriptionTagChange(tagid) {
     try {
         tagsSubscription.set(tagid, true);
-    } catch (err) {
-    }
+    } catch {}
 }
 
 /**
@@ -440,8 +455,7 @@ function subscriptionTagChange(tagid) {
 function updateDeviceStatus(event) {
     try {
         io.emit(Events.IoEventTypes.DEVICE_STATUS, event);
-    } catch (err) {
-    }
+    } catch {}
 }
 
 /**
@@ -451,13 +465,13 @@ function updateAlarmsStatus() {
     try {
         alarmsMgr.getAlarmsStatus().then(function (result) {
             io.emit(Events.IoEventTypes.ALARMS_STATUS, result);
-        }).catch(function (err) {
-            if (err) {
-                logger.error('runtime.failed-to-update-alarms: ' + err);
+        }).catch(function (error) {
+            if (error) {
+                logger.error('runtime.failed-to-update-alarms: ' + error);
             }
         });
-    } catch (err) {
-        logger.error('runtime.failed-to-update-alarms: ' + err);
+    } catch (error) {
+        logger.error('runtime.failed-to-update-alarms: ' + error);
     }
 }
 
@@ -468,8 +482,7 @@ function updateAlarmsStatus() {
 function scriptConsoleOutput(output) {
     try {
         io.emit(Events.IoEventTypes.SCRIPT_CONSOLE, output);
-    } catch (err) {
-    }
+    } catch {}
 }
 
 /**
@@ -480,8 +493,7 @@ function scriptConsoleOutput(output) {
  function scriptSendCommand(command) {
     try {
         io.emit(Events.IoEventTypes.SCRIPT_COMMAND, command);
-    } catch (err) {
-    }
+    } catch {}
 }
 
 var runtime = module.exports = {

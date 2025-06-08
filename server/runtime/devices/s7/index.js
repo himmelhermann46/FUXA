@@ -48,8 +48,8 @@ function S7client(_data, _logger, _events) {
                     } else {
                         reject();
                     }
-                } catch (err) {
-                    logger.error(`'${data.name}' try to connect error! ${err}`);
+                } catch (error) {
+                    logger.error(`'${data.name}' try to connect error! ${error}`);
                     _checkWorking(false);
                     _emitStatus('connect-error');
                     _clearVarsValue();
@@ -71,11 +71,7 @@ function S7client(_data, _logger, _events) {
     this.disconnect = function () {
         return new Promise(function (resolve, reject) {
             _checkWorking(false);
-            if (!s7client.Connected()) {
-                _emitStatus('connect-off');
-                _clearVarsValue();
-                resolve(true);
-            } else {
+            if (s7client.Connected()) {
                 var result = s7client.Disconnect();
                 if (result) {
                     logger.info(`'${data.name}' disconnected!`, true);
@@ -85,6 +81,10 @@ function S7client(_data, _logger, _events) {
                 _emitStatus('connect-off');
                 _clearVarsValue();
                 resolve(result);
+            } else {
+                _emitStatus('connect-off');
+                _clearVarsValue();
+                resolve(true);
             }
         });
     }
@@ -97,16 +97,16 @@ function S7client(_data, _logger, _events) {
         if (_checkWorking(true)) {
             var readVarsfnc = [];
             for (var dbnum in db) {
-                readVarsfnc.push(_readDB(parseInt(dbnum), Object.values(db[dbnum].Items)));
+                readVarsfnc.push(_readDB(Number.parseInt(dbnum), Object.values(db[dbnum].Items)));
             }
-            if (Object.keys(mixItemsMap).length) {
+            if (Object.keys(mixItemsMap).length > 0) {
                 readVarsfnc.push(_readVars(Object.values(mixItemsMap)));
             }
             Promise.all(readVarsfnc).then(result => {
                 _checkWorking(false);
-                if (result.length) {
+                if (result.length > 0) {
                     let varsValueChanged = _updateVarsValue(result);
-                    lastTimestampValue = new Date().getTime();
+                    lastTimestampValue = Date.now();
                     _emitValues(varsValue);
                     if (this.addDaq) {
                         this.addDaq(varsValueChanged, data.name);
@@ -117,11 +117,11 @@ function S7client(_data, _logger, _events) {
                 if (lastStatus !== 'connect-ok') {
                     _emitStatus('connect-ok');
                 }
-            }, reason => {
-                if (reason && reason.stack) {
-                    logger.error(`'${data.name}' _readVars error! ${reason.stack}`);
+            }, error => {
+                if (error && error.stack) {
+                    logger.error(`'${data.name}' _readVars error! ${error.stack}`);
                 } else {
-                    logger.error(`'${data.name}' _readVars error! ${reason}`);
+                    logger.error(`'${data.name}' _readVars error! ${error}`);
                 }
                 _checkWorking(false);
             });
@@ -166,8 +166,8 @@ function S7client(_data, _logger, _events) {
                     varDb.name = data.tags[id].name;
                     mixItemsMap[id] = varDb;
                 }
-            } catch (err) {
-                logger.error(`'${data.name}' load error! ${err}`);
+            } catch (error) {
+                logger.error(`'${data.name}' load error! ${error}`);
             }
         }
         logger.info(`'${data.name}' data loaded (${count})`, true);
@@ -220,11 +220,11 @@ function S7client(_data, _logger, _events) {
             item.value = value;
             _writeVars([item], (item instanceof DbItem)).then(result => {
                 logger.info(`'${data.name}' setValue(${sigid}, ${value})`, true);
-            }, reason => {
-                if (reason && reason.stack) {
-                    logger.error(`'${data.name}' _writeVars error! ${reason.stack}`);
+            }, error => {
+                if (error && error.stack) {
+                    logger.error(`'${data.name}' _writeVars error! ${error.stack}`);
                 } else {
-                    logger.error(`'${data.name}' _writeVars error! ${reason}`);
+                    logger.error(`'${data.name}' _writeVars error! ${error}`);
                 }
             });
         }
@@ -281,22 +281,22 @@ function S7client(_data, _logger, _events) {
                     let type = items[itemidx].type;
                     let value = items[itemidx].value;
                     let tags = items[itemidx].Tags;
-                    tags.forEach(tag => {
+                    for (const tag of tags) {
                         if (type === 'BOOL') {
                             try {
-                                let pos = parseInt(tag.address.charAt(tag.address.length - 1));
+                                let pos = Number.parseInt(tag.address.charAt(tag.address.length - 1));
                                 tempTags[tag.id] = { id: tag.id, value: _getBit(value, pos) ? 1 : 0, type: type, daq: tag.daq, changed: changed };
-                            } catch (err) { }
+                            } catch {}
                         } else {
                             tempTags[tag.id] = { id: tag.id, value: value, type: type, daq: tag.daq, changed: changed };
                         }
                         someval = true;
-                    });
+                    }
                 } else {
                     if (items[itemidx].type === 'BOOL') {
                         try {
                             items[itemidx].value = (_getBit(items[itemidx].value, items[itemidx].bit)) ? 1 : 0;
-                        } catch (err) { }
+                        } catch {}
                     }
                     tempTags[items[itemidx].id] = { id: items[itemidx].id, value: items[itemidx].value, type: items[itemidx].type, daq: items[itemidx].daq, changed: changed };
                     someval = true;
@@ -304,7 +304,7 @@ function S7client(_data, _logger, _events) {
             }
         }
         if (someval) {
-            const timestamp = new Date().getTime();
+            const timestamp = Date.now();
             var result = {};
             for (var id in tempTags) {
                 if (this.addDaq && !utils.isNullOrUndefined(tempTags[id].value) && deviceUtils.tagDaqToSave(tempTags[id], timestamp)) {
@@ -388,12 +388,12 @@ function S7client(_data, _logger, _events) {
 
             let end = 0;
             let offset = Number.MAX_SAFE_INTEGER;
-            vars.forEach(v => {
+            for (const v of vars) {
                 if (v.Start < offset) offset = v.Start;
                 if (end < v.Start + datatypes[v.type].bytes) {
                     end = v.Start + datatypes[v.type].bytes;
                 }
-            });
+            }
             s7client.DBRead(DBNr, offset, end - offset, (err, res) => {
                 if (err) return _getErr(err);
                 vars.map(v => {
@@ -436,7 +436,7 @@ function S7client(_data, _logger, _events) {
                     v.value = value;
                     return v;
                 });
-                if (errs.length) return reject(_getErr(errs));
+                if (errs.length > 0) return reject(_getErr(errs));
                 resolve(vars);
             });
         });
@@ -487,7 +487,7 @@ function S7client(_data, _logger, _events) {
             DBNumber: v.dbnum,
             Start: v.type === 'BOOL' ? v.Start * 8 + v.bit : v.Start,
             Amount: 1,
-            Data: datatypes[v.type].formatter(parseFloat(v.value))
+            Data: datatypes[v.type].formatter(Number.parseFloat(v.value))
         }));
         return new Promise((resolve, reject) => {
             s7client.WriteMultiVars(toWrite, (err, res) => {
@@ -498,7 +498,7 @@ function S7client(_data, _logger, _events) {
                     if (res[i].Result !== 0) return errs.push(s7client.ErrorText(res[i].Result));
                     return v;
                 });
-                if (errs.length) return reject(_getErr(errs));
+                if (errs.length > 0) return reject(_getErr(errs));
                 resolve(res);
             });
         });
@@ -512,42 +512,56 @@ function S7client(_data, _logger, _events) {
         try {
             var variable = tag.address.toUpperCase().split(' ').join('');
             if (variable) {
-                var prefix = variable.substring(0, 2);
+                var prefix = variable.slice(0, 2);
                 if (prefix === 'DB') {
                     // DB[n]"                    
                     var startpos = variable.indexOf('.');
-                    var dbNum = parseInt(variable.substring(2, startpos));
+                    var dbNum = Number.parseInt(variable.substring(2, startpos));
                     if (dbNum >= 0) {
                         // DBX 0.0"
                         var dbType = variable.substring(startpos + 1, startpos + 4);
-                        var dbStart = variable.substring(startpos + 4);
+                        var dbStart = variable.slice(Math.max(0, startpos + 4));
                         var result = new DbItem(dbNum);
                         result.type = tag.type.toUpperCase();
                         result.Area = s7client['S7AreaDB'];
-                        if (dbType === 'DBB') {
-                            result.Start = parseInt(dbStart);
+                        switch (dbType) {
+                        case 'DBB': {
+                            result.Start = Number.parseInt(dbStart);
                             if (result.Start >= 0) {
                                 return result;
                             }
-                        } else if (dbType === 'DBW') {
-                            result.Start = parseInt(dbStart);
+
+                        break;
+                        }
+                        case 'DBW': {
+                            result.Start = Number.parseInt(dbStart);
                             if (result.Start >= 0) {
                                 return result;
                             }
-                        } else if (dbType === 'DBD') {
-                            result.Start = parseInt(dbStart);
+
+                        break;
+                        }
+                        case 'DBD': {
+                            result.Start = Number.parseInt(dbStart);
                             if (result.Start >= 0) {
                                 return result;
                             }
-                        } else if (dbType === 'DBX') {
+
+                        break;
+                        }
+                        case 'DBX': {
                             var dbBool = dbStart.split('.');
                             if (dbBool.length >= 2) {
-                                result.Start = parseInt(dbBool[0]);
-                                result.bit = parseInt(dbBool[1]);
+                                result.Start = Number.parseInt(dbBool[0]);
+                                result.bit = Number.parseInt(dbBool[1]);
                                 if (result.Start >= 0 && result.bit >= 0) {
                                     return result;
                                 }
                             }
+
+                        break;
+                        }
+                        // No default
                         }
                     }
                 } else {
@@ -559,46 +573,53 @@ function S7client(_data, _logger, _events) {
                         case 'EW':
                         case 'IW':
                         case 'ED':
-                        case 'ID':
-                            return { Area: s7client['S7AreaPE'], WordLen: len, Start: parseInt(variable.substring(2)), Amount: 1, type: type };
+                        case 'ID': {
+                            return { Area: s7client['S7AreaPE'], WordLen: len, Start: Number.parseInt(variable.slice(2)), Amount: 1, type: type };
+                        }
                         case 'AB':
                         case 'QB':
                         case 'AW':
                         case 'QW':
                         case 'AD':
-                        case 'QD':
-                            return { Area: s7client['S7AreaPA'], WordLen: len, Start: parseInt(variable.substring(2)), Amount: 1, type: type };
+                        case 'QD': {
+                            return { Area: s7client['S7AreaPA'], WordLen: len, Start: Number.parseInt(variable.slice(2)), Amount: 1, type: type };
+                        }
                         case 'MB':
                         case 'MW':
-                        case 'MD':
-                            return { Area: s7client['S7AreaMK'], WordLen: len, Start: parseInt(variable.substring(2)), Amount: 1, type: type };
-                        default:
+                        case 'MD': {
+                            return { Area: s7client['S7AreaMK'], WordLen: len, Start: Number.parseInt(variable.slice(2)), Amount: 1, type: type };
+                        }
+                        default: {
                             len = datatypes['BYTE'].S7WordLen;
-                            var start = parseInt(variable.substring(1, variable.indexOf('.')));
-                            var bit = parseInt(variable.substring(variable.indexOf('.') + 1));
-                            switch (prefix.substring(0, 1)) {
+                            var start = Number.parseInt(variable.substring(1, variable.indexOf('.')));
+                            var bit = Number.parseInt(variable.slice(Math.max(0, variable.indexOf('.') + 1)));
+                            switch (prefix.slice(0, 1)) {
                                 case 'E':
-                                case 'I':
+                                case 'I': {
                                     return { Area: s7client['S7AreaPE'], WordLen: len, Start: start, Amount: 1, type: type, bit: bit };
+                                }
                                 case 'A':
-                                case 'Q':
+                                case 'Q': {
                                     return { Area: s7client['S7AreaPA'], WordLen: len, Start: start, Amount: 1, type: type, bit: bit };
-                                case 'M':
+                                }
+                                case 'M': {
                                     return { Area: s7client['S7AreaMK'], WordLen: len, Start: start, Amount: 1, type: type, bit: bit };
+                                }
                                 case 'O':
                                 case 'T':
                                 case 'Z':
-                                case 'C':
+                                case 'C': {
                                     return null;
-                                default:
+                                }
+                                default: {
                                     return null;
+                                }
                             }
+                        }
                     }
                 }
             }
-        } catch (err) {
-
-        }
+        } catch {}
         return null;
     }
 
@@ -617,8 +638,8 @@ module.exports = {
         // deviceCloseTimeout = settings.deviceCloseTimeout || 15000;
     },
     create: function (data, logger, events, manager) {
-        try { snap7 = require('node-snap7'); } catch { }
-        if (!snap7 && manager) { try { snap7 = manager.require('node-snap7'); } catch { } }
+        try { snap7 = require('node-snap7'); } catch {}
+        if (!snap7 && manager) { try { snap7 = manager.require('node-snap7'); } catch {} }
         if (snap7) datatypes = require('./datatypes');
         else return null;
         return new S7client(data, logger, events);

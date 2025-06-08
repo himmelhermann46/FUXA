@@ -1,8 +1,8 @@
 'use strict';
 
 const { createLogger, format, transports } = require('winston');
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 var initialized = false;
 var filelogger;
@@ -37,14 +37,14 @@ var log = module.exports = {
                 new (transports.File)({
                     level: 'info',
                     filename: `${logDir}/${logFileName}`,
-                    maxsize: 1048576, // 1MB
+                    maxsize: 1_048_576, // 1MB
                     maxFiles: 5,
                     json: false
                 }),
                 new (transports.File)({
                     level: 'error',
                     filename: `${logDir}/${errorFileName}`,
-                    maxsize: 1048576,//5242880, // 1MB
+                    maxsize: 1_048_576,//5242880, // 1MB
                     maxFiles: 5,
                     json: false
                 })
@@ -55,38 +55,38 @@ var log = module.exports = {
 
     debug: function (str, flag) {
         //	debug color: Cyan
-        console.log("\x1B[36m" + new Date().toISOString() + ' [DBG]  ' + "\t" + processInput(str) + "\x1B[39m");
-        if (initialized && (null == flag || true === flag)) {
+        console.log("\u001B[36m" + new Date().toISOString() + ' [DBG]  ' + "\t" + processInput(str) + "\u001B[39m");
+        if (initialized && (undefined == flag || true === flag)) {
             filelogger.debug(str);
         }
     },
     info: function (str, flag) {
         //	debug color: Default (White / Black)
-        if (initialized && (null == flag || false === flag)) {
+        if (initialized && (undefined == flag || false === flag)) {
             console.log(new Date().toISOString() + ' [INF] ' + "\t" + processInput(str));
         }
-        if (initialized && (null == flag || true === flag)) {
+        if (initialized && (undefined == flag || true === flag)) {
             filelogger.info(str);
         }
     },
     trace: function (str, flag) {
         //	trace color: Grey
-        console.error("\x1B[90m" + new Date().toISOString() + ' [TRA] ' + "\t" + processInput(str) + "\x1B[0m");
-        if (initialized && (null == flag || true === flag)) {
+        console.error("\u001B[90m" + new Date().toISOString() + ' [TRA] ' + "\t" + processInput(str) + "\u001B[0m");
+        if (initialized && (undefined == flag || true === flag)) {
             filelogger.trace(str);
         }
     },
     warn: function (str, flag) {
         //	warn color: Yellow
-        console.log("\x1B[33m" + new Date().toISOString() + ' [WAR] ' + "\t" + processInput(str) + "\x1B[39m");
-        if (initialized && (null == flag || true === flag)) {
+        console.log("\u001B[33m" + new Date().toISOString() + ' [WAR] ' + "\t" + processInput(str) + "\u001B[39m");
+        if (initialized && (undefined == flag || true === flag)) {
             filelogger.warn(str);
         }
     },
     error: function (str, flag) {
         //	error color: Red
-        console.error("\x1B[31m" + new Date().toISOString() + ' [ERR] ' + "\t" + processInput(str) + "\x1B[0m");
-        if (initialized && (null == flag || true === flag)) {
+        console.error("\u001B[31m" + new Date().toISOString() + ' [ERR] ' + "\t" + processInput(str) + "\u001B[0m");
+        if (initialized && (undefined == flag || true === flag)) {
             filelogger.error(str);
         }
     },
@@ -102,10 +102,5 @@ var log = module.exports = {
 }
 
 function processInput(param) {
-    if ('string' == typeof param) {
-        return param;
-    }
-    else {
-        return JSON.stringify(param);
-    }
-};
+    return 'string' == typeof param ? param : JSON.stringify(param);
+}

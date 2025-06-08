@@ -11,7 +11,7 @@ var timeFormat = 'moment.ISO_8601';
 
 const createImage = async (chartItem, chartValues) => {
     let datasets = [];
-    chartItem.chart.lines.forEach(line => {
+    for (const line of chartItem.chart.lines) {
         datasets.push({
             label: line.label, 
             borderColor: line.color,
@@ -20,7 +20,7 @@ const createImage = async (chartItem, chartValues) => {
             backgroundColor: line.fill,
             borderWidth: 1
         });
-    });
+    }
     const configuration = {
         type: 'line',
         data: {

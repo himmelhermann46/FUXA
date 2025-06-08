@@ -17,10 +17,10 @@ module.exports = {
     app: function() {
         var alarmsApp = express();
         alarmsApp.use(function(req, res, next) {
-            if (!runtime.project) {
-                res.status(404).end();
-            } else {
+            if (runtime.project) {
                 next();
+            } else {
+                res.status(404).end();
             }
         });
 
@@ -42,13 +42,13 @@ module.exports = {
                     } else {
                         res.end();
                     }
-                } catch (err) {
-                    if (err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
+                } catch (error) {
+                    if (error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
                     } else {
-                        res.status(400).json({error:"unexpected_error", message:err.toString()});
+                        res.status(400).json({error:"unexpected_error", message:error.toString()});
                     }
-                    runtime.logger.error("api get alarms: " + err.message);
+                    runtime.logger.error("api get alarms: " + error.message);
                 }       
 			}			
         });
@@ -70,13 +70,13 @@ module.exports = {
                     } else {
                         res.end();
                     }
-                }).catch(function(err) {
-                    if (err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
+                }).catch(function(error) {
+                    if (error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
                     } else {
-                        res.status(400).json({error:"unexpected_error", message:err.toString()});
+                        res.status(400).json({error:"unexpected_error", message:error.toString()});
                     }
-                    runtime.logger.error("api get alarms: " + err.message);
+                    runtime.logger.error("api get alarms: " + error.message);
                 });    
 			}            
         });
@@ -92,13 +92,13 @@ module.exports = {
             } else {		
                 runtime.alarmsMgr.setAlarmAck(req.body.params, req.userId, groups).then(function(data) {
                     res.end();
-                }).catch(function(err) {
-                    if (err.code) {
-                        res.status(err.code).json({error:err.code, message: err.message});
+                }).catch(function(error) {
+                    if (error.code) {
+                        res.status(error.code).json({error:error.code, message: error.message});
                     } else {
-                        res.status(400).json({error:"unexpected_error", message:err.toString()});
+                        res.status(400).json({error:"unexpected_error", message:error.toString()});
                     }
-                    runtime.logger.error("api post alarm-ack: " + err.message);
+                    runtime.logger.error("api post alarm-ack: " + error.message);
                 });    
 		  }            
         });
@@ -110,22 +110,22 @@ module.exports = {
             var groups = checkGroupsFnc(req);
 			 if (res.statusCode === 403) {
                 runtime.logger.error("api post alarms: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                runtime.logger.error("api post alarms: Unauthorized");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups) ) {
             runtime.alarmsMgr.clearAlarms(req.body.params).then(function() {
                 runtime.alarmsMgr.reset();
                 res.end();
-            }).catch(function(err) {
-                if (err.code) {
-                    res.status(400).json({error:err.code, message: err.message});
+            }).catch(function(error) {
+                if (error.code) {
+                    res.status(400).json({error:error.code, message: error.message});
                 } else {
-                    res.status(400).json({error:"unexpected_error", message:err.toString()});
+                    res.status(400).json({error:"unexpected_error", message:error.toString()});
                 }
-                runtime.logger.error("api post alarms-clear: " + err.message);
+                runtime.logger.error("api post alarms-clear: " + error.message);
             });      
-		  }			
+		  } else {
+                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                runtime.logger.error("api post alarms: Unauthorized");
+            }
         });
         return alarmsApp;
     }

@@ -29,14 +29,14 @@ function init(_settings, log) {
                 usrstorage.setDefault().then(result => {
                     logger.info('users.usrstorage-set-default successful!', true);
                     resolve();
-                }).catch(function (err) {
-                    logger.error(`users.usrstorage.set-default failed! ${err}`);
+                }).catch(function (error) {
+                    logger.error(`users.usrstorage.set-default failed! ${error}`);
                     resolve();
                 });
             }
-        }).catch(function (err) {
-            logger.error(`users.usrstorage-init failed ${err}`);
-            reject(err);
+        }).catch(function (error) {
+            logger.error(`users.usrstorage-init failed ${error}`);
+            reject(error);
         });
     });
 }
@@ -52,9 +52,9 @@ function getUsers(user) {
             } else {
                 resolve();
             }
-        }).catch(function (err) {
-            logger.error(`users.usrstorage-get-users-list failed! ${err}`);
-            reject(err);
+        }).catch(function (error) {
+            logger.error(`users.usrstorage-get-users-list failed! ${error}`);
+            reject(error);
         });
     });
 }
@@ -67,9 +67,9 @@ function setUsers(query) {
         if (query.username) {
             usrstorage.setUser(query.username, query.fullname, query.password, query.groups).then(() => {
                 resolve();
-            }).catch(function (err) {
-                logger.error(`users.usrstorage-set-users-list failed! ${err}`);
-                reject(err);
+            }).catch(function (error) {
+                logger.error(`users.usrstorage-set-users-list failed! ${error}`);
+                reject(error);
             });
         } else {
             reject();
@@ -85,9 +85,9 @@ function removeUsers(username) {
         if (username) {
             usrstorage.removeUser(username).then(() => {
                 resolve();
-            }).catch(function (err) {
-                logger.error(`users.usrstorage-remove-users failed! ${err}`);
-                reject(err);
+            }).catch(function (error) {
+                logger.error(`users.usrstorage-remove-users failed! ${error}`);
+                reject(error);
             });
         } else {
             reject();
@@ -107,9 +107,9 @@ function findOne(user) {
             } else {
                 resolve();
             }
-        }).catch(function (err) {
-            logger.error(`users.usrstorage-find-user failed! ${err}`);
-            reject(err);
+        }).catch(function (error) {
+            logger.error(`users.usrstorage-find-user failed! ${error}`);
+            reject(error);
         });
     });
 }

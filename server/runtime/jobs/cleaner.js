@@ -2,8 +2,8 @@
 * Cleaner: delete/clear (database) operations 
 */
 var utils = require('../utils');
-var fs = require('fs')
-var path = require('path');
+var fs = require('node:fs')
+var path = require('node:path');
 
 'use strict';
 const timeRange = {from: 1, to: 2};
@@ -24,12 +24,12 @@ function Cleaner(_runtime) {
                     await _clearStorage().then(() => {
                         lastExecuted = currentTime;
                         resolve();
-                    }).catch(function (err) {
-                        reject(err);
+                    }).catch(function (error) {
+                        reject(error);
                     });
                 }
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }
         });
     }

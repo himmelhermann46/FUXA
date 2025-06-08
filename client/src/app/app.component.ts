@@ -44,7 +44,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 	ngAfterViewInit() {
 		try {
 			this.settingsService.init();
-			let hmi = this.projectService.getHmi();
+			const hmi = this.projectService.getHmi();
 			if (hmi) {
 				this.checkSettings();
 			}
@@ -55,7 +55,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 			});
 			// define user groups text
 			this.translateService.get('general.usergroups').subscribe((txt: string) => {
-				let grpLabels = txt.split(',');
+				const grpLabels = txt.split(',');
 				if (grpLabels && grpLabels.length > 0) {
 					for (let i = 0; i < grpLabels.length && i < UserGroups.Groups.length; i++) {
 						UserGroups.Groups[i].label = grpLabels[i];
@@ -88,7 +88,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 	}
 
 	checkSettings() {
-		let hmi = this.projectService.getHmi();
+		const hmi = this.projectService.getHmi();
 		if (hmi && hmi.layout && hmi.layout.showdev === false) {
 			this.showdev = false;
 		} else {
@@ -97,13 +97,13 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 	}
 
 	isHidden() {
-		let list = ['', '/lab', '/home'],
+		const list = ['', '/lab', '/home'],
 			route = this.location.path();
 		return (list.indexOf(route) > -1);
 	}
 
 	getClass() {
-		let route = this.location.path();
+		const route = this.location.path();
 		if (route.startsWith('/view')) {
             return 'work-void';
         }
@@ -111,7 +111,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 	}
 
     showDevNavigation() {
-        let route = this.location.path();
+        const route = this.location.path();
         if (route.startsWith('/view')) {
             return false;
         }

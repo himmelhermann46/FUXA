@@ -8,7 +8,7 @@ var Cleaner = require('./cleaner');
 'use strict';
 
 var JOBS_CHECK_STATUS_INTERVAL = 1000 * 60 * 30;    // 30 min.
-var MILLI_MINUTE = 60000;
+var MILLI_MINUTE = 60_000;
 
 function JobsManager(_runtime) {
     var runtime = _runtime;
@@ -55,14 +55,14 @@ function JobsManager(_runtime) {
 
     this.forceReport = function (report) {
         var found = false;
-        jobsList.forEach(item => {    
+        for (const item of jobsList) {
             let jp = item.job.getProperty();
             if (item.type === JobType.Report && jp.id === report.id) {
                 item.force = true;
                 forceCheck = true;
                 found = true;
             }
-        });
+        }
         return found;
     }
 
@@ -70,39 +70,50 @@ function JobsManager(_runtime) {
      * Check the Jobs state machine
      */
     var _checkStatus = function () {
-        if (status === JobsStatusEnum.INIT) {
+        switch (status) {
+        case JobsStatusEnum.INIT: {
             if (_checkWorking(true)) {
                 _init().then(function () {
                     status = JobsStatusEnum.LOAD;
                     _checkWorking(false);
-                }).catch(function (err) {
+                }).catch(function (error) {
                     _checkWorking(false);
                 });
             }
-        } else if (status === JobsStatusEnum.LOAD) {
+
+        break;
+        }
+        case JobsStatusEnum.LOAD: {
             if (_checkWorking(true)) {
                 _loadJobs().then(function () {
                     status = JobsStatusEnum.IDLE;
                     _checkWorking(false);
-                }).catch(function (err) {
+                }).catch(function (error) {
                     _checkWorking(false);
                 });
             }
-        } else if (status === JobsStatusEnum.IDLE) {
-            if (jobsList.length) {
-                var current = new Date().getTime();
+
+        break;
+        }
+        case JobsStatusEnum.IDLE: {
+            if (jobsList.length > 0) {
+                var current = Date.now();
                 if (forceCheck || current - lastCheck > JOBS_CHECK_STATUS_INTERVAL) {
                     lastCheck = current;
                     forceCheck = false;
                     if (_checkWorking(true)) {
                         _checkJobs().then(function () {
                             _checkWorking(false);
-                        }).catch(function (err) {
+                        }).catch(function (error) {
                             _checkWorking(false);
                         });
                     }
                 }
             }
+
+        break;
+        }
+        // No default
         }
     }
 
@@ -135,23 +146,23 @@ function JobsManager(_runtime) {
                 var cleaner = Cleaner.create(runtime);
                 var job = new Job(cleaner, JobType.Cleaner);
                 jobsList.push(job);    
-            } catch (err) {
-                logger.error(`_loadJobs.cleaner.failed: ${err}`);
+            } catch (error) {
+                logger.error(`_loadJobs.cleaner.failed: ${error}`);
             }    
             // reports
             runtime.project.getReports().then(function (result) {
                 if (result) {
-                    result.forEach(rptProperty => {
+                    for (const rptProperty of result) {
                         if (rptProperty.scheduling !== Report.ReportSchedulingType.none) {
                             var report = Report.create(rptProperty, runtime);
                             var job = new Job(report, JobType.Report);
                             jobsList.push(job);
                         }
-                    });
+                    }
                 }
                 resolve();
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         });
     }
@@ -163,25 +174,25 @@ function JobsManager(_runtime) {
         return new Promise(async function (resolve, reject) {
             var jobsExecute = []
             try {
-                jobsList.forEach(item => {
+                for (const item of jobsList) {
                     if (item.job['execute']) {
                         jobsExecute.push(item.job['execute'](new Date(), item.force));
                         item.force = false;
                     }
-                });
+                }
                 Promise.all(jobsExecute).then(values => {
                     resolve(values);
-                }, reason => {
-                    if (reason && reason.stack) {
-                        logger.error(`checkJobs: ${reason.stack}`);
+                }, error => {
+                    if (error && error.stack) {
+                        logger.error(`checkJobs: ${error.stack}`);
                     } else {
-                        logger.error(`checkJobs: ${reason}`);
+                        logger.error(`checkJobs: ${error}`);
                     }
-                    reject(reason);
+                    reject(error);
                 });
-            } catch (err) {
-                logger.error(`checkJobs.failed: ${err}`);
-                reject(err);
+            } catch (error) {
+                logger.error(`checkJobs.failed: ${error}`);
+                reject(error);
             }                
         });
     }

@@ -18,10 +18,10 @@ module.exports = {
     app: function () {
         var daqApp = express();
         daqApp.use(function (req, res, next) {
-            if (!runtime.project) {
-                res.status(404).end();
-            } else {
+            if (runtime.project) {
                 next();
+            } else {
+                res.status(404).end();
             }
         });
         
@@ -52,13 +52,13 @@ module.exports = {
                                 runtime.logger.error("api get daq: Not Found!");
                             }
                             // io.emit(Events.IoEventTypes.DAQ_RESULT, { gid: msg.gid, values: values });
-                        }, reason => {
-                            if (reason && reason.stack) {
-                                runtime.logger.error(`api get daq: Not Found!: ${reason.stack}`);
-                                res.status(400).json({error:"unexpected_error", message: reason.stack});
+                        }, error => {
+                            if (error && error.stack) {
+                                runtime.logger.error(`api get daq: Not Found!: ${error.stack}`);
+                                res.status(400).json({error:"unexpected_error", message: error.stack});
                             } else {
-                                runtime.logger.error(`api get daq: Not Found!: ${reason}`);
-                                res.status(400).json({error:"unexpected_error", message: reason});
+                                runtime.logger.error(`api get daq: Not Found!: ${error}`);
+                                res.status(400).json({error:"unexpected_error", message: error});
                             }
                         });
                     }
@@ -66,13 +66,13 @@ module.exports = {
                     res.status(404).end();
                     runtime.logger.error("api get daq: Not Found!");
                 }
-            } catch (err) {
-                if (err && err.code) {
-                    res.status(400).json({error:err.code, message: err.message});
+            } catch (error) {
+                if (error && error.code) {
+                    res.status(400).json({error:error.code, message: error.message});
                 } else {
-                    res.status(400).json({error:"unexpected_error", message:err.toString()});
+                    res.status(400).json({error:"unexpected_error", message:error.toString()});
                 }
-                runtime.logger.error("api get daq: " + err.message);
+                runtime.logger.error("api get daq: " + error.message);
             }
         });
         return daqApp;

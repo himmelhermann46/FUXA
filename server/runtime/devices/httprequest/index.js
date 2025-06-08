@@ -35,13 +35,13 @@ function HTTPclient(_data, _logger, _events) {
                         _emitStatus('connect-ok');
                         resolve();
                         connected = true;
-                        lastTimestampRequest = new Date().getTime();
+                        lastTimestampRequest = Date.now();
                         _checkWorking(false);
                     } else {
                         reject();
                     }
-                } catch (err) {
-                    logger.error(`'${data.name}' try to connect error! ${err}`);
+                } catch (error) {
+                    logger.error(`'${data.name}' try to connect error! ${error}`);
                     _checkWorking(false);
                     connected = false;
                     _emitStatus('connect-error');
@@ -80,7 +80,7 @@ function HTTPclient(_data, _logger, _events) {
     this.polling = function () {
         if (_checkWorking(true)) {
             // check connection status
-            let dt = new Date().getTime();
+            let dt = Date.now();
             if ((lastTimestampRequest + (data.polling * 3)) < dt) {
                 _emitStatus('connect-error');
                 _checkWorking(false);
@@ -89,7 +89,7 @@ function HTTPclient(_data, _logger, _events) {
                 _readRequest().then(result => {
                     if (result) {
                         let varsValueChanged = _updateVarsValue(result);
-                        lastTimestampValue = new Date().getTime();
+                        lastTimestampValue = Date.now();
                         _emitValues(varsValue);
                         if (this.addDaq) {
                             this.addDaq(varsValueChanged, data.name);
@@ -99,8 +99,8 @@ function HTTPclient(_data, _logger, _events) {
                         }
                     }
                     _checkWorking(false);
-                }, reason => {
-                    logger.error(`'${data.name}' _readRequest error! ${reason}`);
+                }, error => {
+                    logger.error(`'${data.name}' _readRequest error! ${error}`);
                     _checkWorking(false);
                 });
             } catch {
@@ -138,15 +138,15 @@ function HTTPclient(_data, _logger, _events) {
             var count = Object.keys(data.tags).length;
             for (var id in data.tags) {
                 const address = data.tags[id].address || data.tags[id].id;
-                if (!requestItemsMap[address]) {
-                    requestItemsMap[address] = [data.tags[id]];
-                } else {
+                if (requestItemsMap[address]) {
                     requestItemsMap[address].push(data.tags[id]);   
+                } else {
+                    requestItemsMap[address] = [data.tags[id]];
                 }
             }
             logger.info(`'${data.name}' data loaded (${count})`, true);
-        } catch (err) {
-            logger.error(`'${data.name}' load error! ${err}`);
+        } catch (error) {
+            logger.error(`'${data.name}' load error! ${error}`);
         }            
     }
 
@@ -175,10 +175,10 @@ function HTTPclient(_data, _logger, _events) {
             if (apiProperty.postTags) {
                 data.tags[tagId].value = _parseValue(data.tags[tagId].type, value);
                 axios.post(apiProperty.getTags, [{id: tagId, value: data.tags[tagId].value}]).then(res => {
-                    lastTimestampRequest = new Date().getTime();
+                    lastTimestampRequest = Date.now();
                     logger.info(`setValue '${data.tags[tagId].name}' to ${value})`, true);
-                }).catch(err => {
-                    logger.error(`setValue '${data.tags[tagId].name}' error! ${err}`);
+                }).catch(error => {
+                    logger.error(`setValue '${data.tags[tagId].name}' error! ${error}`);
                 });
             } else {
                 logger.error(`postTags undefined (setValue)`, true);
@@ -214,8 +214,8 @@ function HTTPclient(_data, _logger, _events) {
         return new Promise(function (resolve, reject) {
             try {
                 resolve({ tags: Object.values(requestItemsMap), newTagsCount: newItemsCount });
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }
         });
     }
@@ -235,10 +235,10 @@ function HTTPclient(_data, _logger, _events) {
         return new Promise(function (resolve, reject) {
             if (apiProperty.getTags) {
                 axios.get(apiProperty.getTags).then(res => {
-                    lastTimestampRequest = new Date().getTime();
+                    lastTimestampRequest = Date.now();
                     resolve(res.data);
-                }).catch(err => {
-                    reject(err);
+                }).catch(error => {
+                    reject(error);
                 });
             } else {
                 reject();
@@ -263,25 +263,25 @@ function HTTPclient(_data, _logger, _events) {
      * @param {*} reqdata 
      */
     var _updateVarsValue = (reqdata) => {
-        const timestamp = new Date().getTime();
+        const timestamp = Date.now();
         var changed = {};
         if (apiProperty.ownFlag) {
             var newItems = 0;
-            for (var i = 0; i < reqdata.length; i++) {
-                const id = reqdata[i].id;
+            for (const reqdatum of reqdata) {
+                const id = reqdatum.id;
                 if (id) {
-                    if (!data.tags[id]) {
-                        newItems++;
+                    if (data.tags[id]) {
+                        reqdatum.daq = data.tags[id].daq;
                     } else {
-                        reqdata[i].daq = data.tags[id].daq;
+                        newItems++;
                     }
-                    requestItemsMap[id] = [reqdata[i]];
-                    reqdata[i].changed = varsValue[id] && reqdata[i].value !== varsValue[id].value;
-                    if (this.addDaq && !utils.isNullOrUndefined(reqdata[i].value) && deviceUtils.tagDaqToSave(reqdata[i], timestamp)) {
-                        changed[id] = reqdata[i];
+                    requestItemsMap[id] = [reqdatum];
+                    reqdatum.changed = varsValue[id] && reqdatum.value !== varsValue[id].value;
+                    if (this.addDaq && !utils.isNullOrUndefined(reqdatum.value) && deviceUtils.tagDaqToSave(reqdatum, timestamp)) {
+                        changed[id] = reqdatum;
                     }
-                    reqdata[i].changed = false;
-                    varsValue[id] = reqdata[i];
+                    reqdatum.changed = false;
+                    varsValue[id] = reqdatum;
                 }
             }
             newItemsCount = newItems;
@@ -361,14 +361,18 @@ function HTTPclient(_data, _logger, _events) {
      * return converted value
      */
     var _parseValue = function (type, value) {
-        if (type === 'number') {
-            return parseFloat(value); 
-        } else if (type === 'boolean') {
+        switch (type) {
+        case 'number': {
+            return Number.parseFloat(value);
+        }
+        case 'boolean': {
             return Boolean(value);
-        } else if (type === 'string') {
+        }
+        case 'string': {
             return value;
-        } else {
-            let val = parseFloat(value);
+        }
+        default: {
+            let val = Number.parseFloat(value);
             if (Number.isNaN(val)) {
                 // maybe boolean
                 val = Number(value);
@@ -377,9 +381,10 @@ function HTTPclient(_data, _logger, _events) {
                     val = value;
                 }
             } else {
-                val = parseFloat(val.toFixed(5));
+                val = Number.parseFloat(val.toFixed(5));
             }
             return val;
+        }
         }
     }
 }
@@ -396,16 +401,16 @@ function dataToFlat(data, property) {
             let idx = 0;
             for(var key in nodes) {
                 let tres = parseTree(nodes[key], '[' + idx++ + ']', nodeId);
-                Object.keys(tres).forEach( key => {
+                for (const key of Object.keys(tres)) {
                     result[key] = tres[key]; 
-                });
+                }
             }
         } else if (nodes && typeof nodes === 'object') {
             for(var key in nodes) {
                 let tres = parseTree(nodes[key], key, nodeId);
-                Object.keys(tres).forEach( key => {
+                for (const key of Object.keys(tres)) {
                     result[key] = tres[key]; 
-                });
+                }
             }
         } else {
             result[nodeId] = nodes; 
@@ -413,9 +418,7 @@ function dataToFlat(data, property) {
         return result;
     }
 
-    if (property.format === 'CSV') {
-
-    } else if (property.format === 'JSON') {
+    if (property.format === 'CSV') {} else if (property.format === 'JSON') {
         return parseTree(data);
     }
     return data;
@@ -430,14 +433,14 @@ function getRequestResult(property) {
             if (property.method === 'GET') {
                 axios.get(property.address).then(res => {
                     resolve(res.data);
-                }).catch(err => {
-                    reject(err);
+                }).catch(error => {
+                    reject(error);
                 });
             } else {
                 reject('getrequestresult-error: method is missing!');
             }
-        } catch (err) {
-            reject('getrequestresult-error: ' + err);
+        } catch (error) {
+            reject('getrequestresult-error: ' + error);
         }
     });
 }

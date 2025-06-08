@@ -5,8 +5,8 @@
 
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 var sqlite3 = require('sqlite3').verbose();
 
 var settings            // Application settings
@@ -78,9 +78,7 @@ function clearNotifications(all) {
  */
 function getNotifications() {
     return new Promise(function (resolve, reject) {
-        if (!db_notifications) {
-            reject(false);
-        } else {
+        if (db_notifications) {
             var sql = "SELECT * FROM notifications";
             db_notifications.all(sql, function (err, rows) {
                 if (err) {
@@ -89,6 +87,8 @@ function getNotifications() {
                     resolve(rows);
                 }
             });
+        } else {
+            reject(false);
         }
     });
 }
@@ -98,9 +98,7 @@ function getNotifications() {
  */
  function getNotificationsHistory(from, to) {
     return new Promise(function (resolve, reject) {
-        if (!db_notifications) {
-            reject(false);
-        } else {
+        if (db_notifications) {
             // var sql = "SELECT * FROM history WHERE dt BETWEEN ? and ? ORDER BY dt ASC";
             // db_notifications.all(sql, [from, to], function (err, rows) {
             var sql = "SELECT * FROM chronicle ORDER BY ontime DESC";
@@ -111,6 +109,8 @@ function getNotifications() {
                     resolve(rows);
                 }
             });
+        } else {
+            reject(false);
         }
     });
 }

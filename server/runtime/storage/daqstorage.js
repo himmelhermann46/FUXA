@@ -4,8 +4,8 @@
 
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 var SqliteDB = require("./sqlite");
 var InfluxDB = require("./influxdb");
 // var DaqNode = require('./daqnode');
@@ -40,11 +40,7 @@ function addDaqNode(_id, fncgetprop) {
         id = _getDbType();
     }
     if (!daqDB[id]) {
-        if (id === DaqStoreTypeEnum.influxDB) {
-            daqDB[id] = InfluxDB.create(settings, logger);
-        } else {
-            daqDB[id] = SqliteDB.create(settings, logger, id);
-        }
+        daqDB[id] = id === DaqStoreTypeEnum.influxDB ? InfluxDB.create(settings, logger) : SqliteDB.create(settings, logger, id);
     }
     return daqDB[id].setCall(fncgetprop);
     // return daqnodes[id].addDaqValue;
@@ -75,43 +71,43 @@ function getNodesValues(tagsid, fromts, tots, options) {
     return new Promise(async function (resolve, reject) {
         try {
             var dbfncs = [];
-            for (let i = 0; i < tagsid.length; i++) {
-                dbfncs.push(await getNodeValues(tagsid[i], fromts, tots));
+            for (const element of tagsid) {
+                dbfncs.push(await getNodeValues(element, fromts, tots));
             }
             Promise.all(dbfncs).then(values => {
-                if (!values || values.length < 1) {    // (0)[]
+                if (!values || values.length === 0) {    // (0)[]
                     resolve(['', ...tagsid.map(col => '')]);
                 } else if (options) {
                     let calcValues = [];
-                    for (let idx = 0 ; idx < values.length; idx++) {
+                    for (const [idx, value] of values.entries()) {
                         if (options.functions[idx]) {
-                            calcValues.push(calculator.getFunctionValues(values[idx], fromts, tots, options.functions[idx], options.interval));
+                            calcValues.push(calculator.getFunctionValues(value, fromts, tots, options.functions[idx], options.interval));
                         } else {
-                            calcValues.push(calculator.getFunctionValues(values[idx], fromts, tots));
+                            calcValues.push(calculator.getFunctionValues(value, fromts, tots));
                         }
                     }
-                    let keys = Object.keys(calcValues[0]).map(ts => Number(ts));
+                    let keys = Object.keys(calcValues[0]).map(Number);
                     let mergeValues = Object.keys(calcValues[0]).map(ts => [utils.getFormatDate(new Date(Number(ts))), _getValue(calcValues[0][ts])]);
                     for (let x = 1; x < calcValues.length; x++) {
                         let y = 0;
-                        keys.forEach(k => {
+                        for (const k of keys) {
                             mergeValues[y++].push(_getValue(calcValues[x][k]));
-                        });
+                        }
                     }
                     resolve(mergeValues);
                 } else {
                     var result = {};
-                    for (let i = 0; i < tagsid.length; i++) {
-                        result[tagsid[i]] = values[i].map(v => { return { x: new Date(v.dt), y: v.value} });
-                        result[tagsid[i]].push({ x: new Date(tots), y: null});
-                        result[tagsid[i]].unshift({ x: new Date(fromts), y: null});
+                    for (const [i, element] of tagsid.entries()) {
+                        result[element] = values[i].map(v => { return { x: new Date(v.dt), y: v.value} });
+                        result[element].push({ x: new Date(tots), y: null});
+                        result[element].unshift({ x: new Date(fromts), y: null});
                     }
                     resolve(result);
                 }
-            }, reason => {
-                reject(reason);
+            }, error => {
+                reject(error);
             });
-        } catch (err) {
+        } catch {
             reject(['ERR', ...tagsid.map(col => 'ERR')]);
         }
     });
@@ -124,8 +120,8 @@ function checkRetention() {
                 SqliteDB.checkRetention(_getRetentionLimit(settings.daqstore.retention), settings.dbDir, (err) => {
                     logger.error(`daqstorage.checkRetention remove file failed! ${err}`);
                 });
-            } catch (err) {
-                logger.error(err);
+            } catch (error) {
+                logger.error(error);
             }
         }
         logger.info(`daqstorage.checkRetention processed`);
@@ -135,9 +131,9 @@ function checkRetention() {
 
 function _getDaqNode(tagid) {
     var nodes = Object.values(daqDB);
-    for (var i = 0; i < nodes.length; i++) {
-        if (nodes[i].getDaqMap(tagid)[tagid]) {
-            return nodes[i];
+    for (const node of nodes) {
+        if (node.getDaqMap(tagid)[tagid]) {
+            return node;
         }
     }
 }
@@ -163,22 +159,48 @@ function _getValue(value) {
 
 var _getRetentionLimit = function(retention) {
     var dayToAdd = 0;
-    if (retention === 'day1') {
+    switch (retention) {
+    case 'day1': {
         dayToAdd = 1;
-    } else if (retention === 'days2') {
+
+    break;
+    }
+    case 'days2': {
         dayToAdd = 2;
-    } else if (retention === 'days3') {
+
+    break;
+    }
+    case 'days3': {
         dayToAdd = 3;
-    } else if (retention === 'days7') {
+
+    break;
+    }
+    case 'days7': {
         dayToAdd = 7;
-    } else if (retention === 'days14') {
+
+    break;
+    }
+    case 'days14': {
         dayToAdd = 14;
-    } else if (retention === 'days30') {
+
+    break;
+    }
+    case 'days30': {
         dayToAdd = 30;
-    } else if (retention === 'days90') {
+
+    break;
+    }
+    case 'days90': {
         dayToAdd = 90;
-    } else if (retention === 'year1') {
+
+    break;
+    }
+    case 'year1': {
         dayToAdd = 365;
+
+    break;
+    }
+    // No default
     }
     const date = new Date();
     date.setDate(date.getDate() - dayToAdd);

@@ -1,5 +1,5 @@
 
-var events = require("events");
+var events = require("node:events");
 
 /**
  * @enum

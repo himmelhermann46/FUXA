@@ -76,8 +76,8 @@ function ScriptsManager(_runtime) {
                 }
                 // this.runtime.project.getScripts();
                 resolve(`Script OK: ${script.name}`);
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }
         });
     }
@@ -89,8 +89,8 @@ function ScriptsManager(_runtime) {
             if (admin || (st && (!st.permission || st.permission & groups))) {
                 return true;
             }
-        } catch (err) {
-            logger.error(err);
+        } catch (error) {
+            logger.error(error);
         }
         return false;
     }
@@ -99,41 +99,52 @@ function ScriptsManager(_runtime) {
      * Check the Scripts state machine
      */
     var _checkStatus = function () {
-        if (status === ScriptsStatusEnum.INIT) {
+        switch (status) {
+        case ScriptsStatusEnum.INIT: {
             if (_checkWorking(true)) {
                 _init().then(function () {
                     status = ScriptsStatusEnum.LOAD;
                     _checkWorking(false);
-                }).catch(function (err) {
+                }).catch(function (error) {
                     _checkWorking(false);
                 });
             }
-        } else if (status === ScriptsStatusEnum.LOAD) {
+
+        break;
+        }
+        case ScriptsStatusEnum.LOAD: {
             if (_checkWorking(true)) {
                 _loadProperty().then(function () {
                     _checkWorking(false);
                     status = ScriptsStatusEnum.IDLE;
-                }).catch(function (err) {
+                }).catch(function (error) {
                     _checkWorking(false);
                 });
             }
-        } else if (status === ScriptsStatusEnum.IDLE) {
-            const time = new Date().getTime();
-            Object.keys(schedulingMap).forEach((name) => {
+
+        break;
+        }
+        case ScriptsStatusEnum.IDLE: {
+            const time = Date.now();
+            for (const name of Object.keys(schedulingMap)) {
                 const script = schedulingMap[name];
                 if (script.isToRun(time)) {
                     try {
                         scriptModule.runScriptWithoutParameter(script);
                         script.lastRun = time;
-                    } catch (err) {
-                        if (err.message) {
-                            logger.error(err.message);
+                    } catch (error) {
+                        if (error.message) {
+                            logger.error(error.message);
                         } else {
-                            logger.error(err);
+                            logger.error(error);
                         }
                     }
                 }
-            });
+            }
+
+        break;
+        }
+        // No default
         }
     }
 
@@ -165,17 +176,17 @@ function ScriptsManager(_runtime) {
             runtime.project.getScripts().then((scripts) => {
                 if (scripts) {
                     var lr = scriptModule.loadScripts(scripts);
-                    Object.values(scripts).forEach((script) => {
+                    for (const script of Object.values(scripts)) {
                         if (script.scheduling && script.scheduling.interval && script.mode != 'CLIENT') {
                             schedulingMap[script.name] = new ScriptSchedule(script);
                         }
-                    });
+                    }
                     resolve(lr.messages);
                 } else {
                     resolve();
                 }
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         });
     }

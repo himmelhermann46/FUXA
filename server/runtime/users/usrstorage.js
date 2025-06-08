@@ -5,8 +5,8 @@
 
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 var sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 
@@ -116,7 +116,7 @@ function setUser(usr, fullname, pwd, groups) {
         // prepare query
         var exist = false;
         getUsers({username: usr}).then(function(data) {
-            if (data && data.length) {
+            if (data && data.length > 0) {
                 exist = true;
             }
             var sql = "";
@@ -139,7 +139,7 @@ function setUser(usr, fullname, pwd, groups) {
                     resolve();
                 }
             });  
-        }).catch(function(err) {
+        }).catch(function(error) {
             reject();
         });   
     });

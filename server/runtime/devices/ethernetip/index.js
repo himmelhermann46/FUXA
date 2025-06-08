@@ -59,8 +59,8 @@ function EthernetIPclient(_data, _logger, _events) {
                         reject();
                         _emitStatus('connect-error');
                     }
-                } catch (err) {
-                    logger.error(`'${data.name}' try to connect error! ${err}`);
+                } catch (error) {
+                    logger.error(`'${data.name}' try to connect error! ${error}`);
                     _checkWorking(false);
                     _emitStatus('connect-error');
                     _clearVarsValue();
@@ -94,9 +94,9 @@ function EthernetIPclient(_data, _logger, _events) {
                     });
                 }
                 resolve(true);
-            } catch (err) {
-                if (err) {
-                    logger.error(`'${data.name}' disconnect failure! ${err}`);
+            } catch (error) {
+                if (error) {
+                    logger.error(`'${data.name}' disconnect failure! ${error}`);
                 }
                 reject();
             }
@@ -119,7 +119,7 @@ function EthernetIPclient(_data, _logger, _events) {
                         _checkWorking(false);
                         if (result) {
                             let varsValueChanged = _updateVarsValue(result);
-                            lastTimestampValue = new Date().getTime();
+                            lastTimestampValue = Date.now();
                             _emitValues(varsValue);
                             if (this.addDaq) {
                                 this.addDaq(varsValueChanged, data.name);
@@ -127,12 +127,12 @@ function EthernetIPclient(_data, _logger, _events) {
                         } else {
                             // console.error('then error');
                         }
-                    }, reason => {
-                        logger.error(`'${data.name}' _readValues error! ${reason}`);
+                    }, error => {
+                        logger.error(`'${data.name}' _readValues error! ${error}`);
                         _checkWorking(false);
                     });
-                } catch (err) {
-                    logger.error(`'${data.name}' polling error: ${err}`);
+                } catch (error) {
+                    logger.error(`'${data.name}' polling error: ${error}`);
                     _checkWorking(false);
                 }
             } else {
@@ -159,8 +159,8 @@ function EthernetIPclient(_data, _logger, _events) {
                 // }
             }
             logger.info(`'${data.name}' data loaded (${count})`, true);
-        } catch (err) {
-            logger.error(`'${data.name}' load error! ${err}`);
+        } catch (error) {
+            logger.error(`'${data.name}' load error! ${error}`);
         }
     }
 
@@ -206,7 +206,7 @@ function EthernetIPclient(_data, _logger, _events) {
      */
     this.setValue = function (tagid, value) {
         if (data.tags[tagid]) {
-            conn.writeItems([data.tags[tagid].address], [parseFloat(value)], (error) => {
+            conn.writeItems([data.tags[tagid].address], [Number.parseFloat(value)], (error) => {
                 if (error) {
                     logger.error(`'${data.tags[tagid].name}' setValue error! ${error}`);
                 } else {
@@ -238,7 +238,7 @@ function EthernetIPclient(_data, _logger, _events) {
         for (var id in varsValue) {
             varsValue[id].value = null;
         }
-        if (varsValue.length) {
+        if (varsValue.length > 0) {
             _emitValues(varsValue);
         }
     }
@@ -262,9 +262,9 @@ function EthernetIPclient(_data, _logger, _events) {
      * @param {*} vars 
      */
     var _updateVarsValue = (vars) => {
-        const timestamp = new Date().getTime();
+        const timestamp = Date.now();
         var changed = {};
-        Object.keys(itemsMap).forEach(key => {
+        for (const key of Object.keys(itemsMap)) {
             if (vars[key]) {
                 var id = itemsMap[key].id;
                 var valueChanged = itemsMap[key].value !== vars[key];
@@ -275,7 +275,7 @@ function EthernetIPclient(_data, _logger, _events) {
                 }
                 varsValue[id].changed = false;
             }
-        });
+        }
         return changed;
     }
 
@@ -284,20 +284,20 @@ function EthernetIPclient(_data, _logger, _events) {
      */
     var _connect = function (callback) {
         try {
-            var port = 44818;
+            var port = 44_818;
             var addr = data.property.address;
-            if (data.property.address.indexOf(':') !== -1) {
-                var addr = data.property.address.substring(0, data.property.address.indexOf(':'));
-                var temp = data.property.address.substring(data.property.address.indexOf(':') + 1);
-                port = parseInt(temp);
+            if (data.property.address.includes(':')) {
+                var addr = data.property.address.slice(0, Math.max(0, data.property.address.indexOf(':')));
+                var temp = data.property.address.slice(Math.max(0, data.property.address.indexOf(':') + 1));
+                port = Number.parseInt(temp);
             }
             if (data.property.options) {
                 conn.initiateConnection({ port: port, host: addr, routing: [0x01, 0x00, data.property.rack, data.property.slot] }, callback);
             } else {
                 conn.initiateConnection({ port: port, host: addr /* , routing: [0x01,0x00,0x01,0x00] */ }, callback);
             }
-        } catch (err) {
-            callback(err);
+        } catch (error) {
+            callback(error);
         }
     }
 
@@ -340,12 +340,11 @@ function EthernetIPclient(_data, _logger, _events) {
 }
 
 module.exports = {
-    init: function (settings) {
-    },
+    init: function (settings) {},
     create: function (data, logger, events, manager) {
         // To use with plugin
-        try { EthernetIp = require('nodepccc'); } catch { }
-        if (!EthernetIp && manager) { try { EthernetIp = manager.require('nodepccc'); } catch { } }
+        try { EthernetIp = require('nodepccc'); } catch {}
+        if (!EthernetIp && manager) { try { EthernetIp = manager.require('nodepccc'); } catch {} }
         if (!EthernetIp) return null;
         return new EthernetIPclient(data, logger, events);
     }

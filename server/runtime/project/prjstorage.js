@@ -5,8 +5,8 @@
 
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 var sqlite3 = require('sqlite3').verbose();
 
 var settings        // Application settings
@@ -66,12 +66,11 @@ function _bind() {
 function setDefault() {
     return new Promise(function (resolve, reject) {
         var scs = [];
-        scs.push({ table: TableType.GENERAL, name: 'version', value: '1.00' });
-        scs.push({ table: TableType.DEVICES, name: 'server', value: { 'id': '0', 'name': 'FUXA Server', 'type': 'FuxaServer', 'property': {} } });
+        scs.push({ table: TableType.GENERAL, name: 'version', value: '1.00' }, { table: TableType.DEVICES, name: 'server', value: { 'id': '0', 'name': 'FUXA Server', 'type': 'FuxaServer', 'property': {} } });
         setSections(scs).then(() => {
             resolve();
-        }).catch(function (err) {
-            reject(err);
+        }).catch(function (error) {
+            reject(error);
         });
     });
 }
@@ -85,9 +84,9 @@ function setSections(sections) {
     return new Promise(function (resolve, reject) {
         // prepare query
         var sql = "";
-        for(var i = 0; i < sections.length; i++) {
-            var value = JSON.stringify(sections[i].value).replace(/\'/g,"''");
-            sql += "INSERT OR REPLACE INTO " + sections[i].table + " (name, value) VALUES('" + sections[i].name + "','"+ value + "');";
+        for(const section of sections) {
+            var value = JSON.stringify(section.value).replace(/'/g,"''");
+            sql += "INSERT OR REPLACE INTO " + section.table + " (name, value) VALUES('" + section.name + "','"+ value + "');";
         }
         db_prj.exec(sql, function (err) {
             if (err) {
@@ -107,7 +106,7 @@ function setSections(sections) {
  */
 function setSection(section) {
     return new Promise(function (resolve, reject) {
-        var value = JSON.stringify(section.value).replace(/\'/g,"''");
+        var value = JSON.stringify(section.value).replace(/'/g,"''");
         var sql = "INSERT OR REPLACE INTO " + section.table + " (name, value) VALUES('" + section.name + "','"+ value + "');";
         db_prj.exec(sql, function (err) {
             if (err) {

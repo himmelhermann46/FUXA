@@ -7,7 +7,7 @@ const nodemailer = require('nodemailer');
 // const notifystorage = require('./notifystorage');
 
 var NOTIFY_CHECK_STATUS_INTERVAL = 1000 * 60;
-var MILLI_MINUTE = 60000;
+var MILLI_MINUTE = 60_000;
 
 function NotificatorManager(_runtime) {
     var runtime = _runtime;
@@ -31,7 +31,7 @@ function NotificatorManager(_runtime) {
             logger.info('notificator check start', true);
             notifyCheckStatus = setInterval(function () {
                 _checkStatus();     // check in 20 seconds interval
-            }, 20000);
+            }, 20_000);
         });
     }
 
@@ -80,42 +80,53 @@ function NotificatorManager(_runtime) {
      * Check the Notify state machine
      */
     var _checkStatus = function () {
-        if (status === NotifyStatusEnum.INIT) {
+        switch (status) {
+        case NotifyStatusEnum.INIT: {
             if (_checkWorking(true)) {
                 _init().then(function () {
                     status = NotifyStatusEnum.LOAD;
                     _checkWorking(false);
-                }).catch(function (err) {
+                }).catch(function (error) {
                     _checkWorking(false);
                 });
             }
-        } else if (status === NotifyStatusEnum.LOAD) {
+
+        break;
+        }
+        case NotifyStatusEnum.LOAD: {
             if (_checkWorking(true)) {
                 _loadProperty().then(function () {
                     _loadNotifications().then(function () {
                         status = NotifyStatusEnum.IDLE;
                         _checkWorking(false);
-                    }).catch(function (err) {
+                    }).catch(function (error) {
                         _checkWorking(false);
                     });
-                }).catch(function (err) {
+                }).catch(function (error) {
                     _checkWorking(false);
                 });
             }
-        } else if (status === NotifyStatusEnum.IDLE) {
+
+        break;
+        }
+        case NotifyStatusEnum.IDLE: {
             if (notificationsFound) {
-                var current = new Date().getTime();
+                var current = Date.now();
                 if (current - lastCheck > NOTIFY_CHECK_STATUS_INTERVAL) {
                     lastCheck = current;
                     if (_checkWorking(true)) {
                         _checkNotifications().then(function () {
                             _checkWorking(false);
-                        }).catch(function (err) {
+                        }).catch(function (error) {
                             _checkWorking(false);
                         });
                     }
                 }
             }
+
+        break;
+        }
+        // No default
         }
     }
 
@@ -153,9 +164,9 @@ function NotificatorManager(_runtime) {
             notificationsFound = 0;
             runtime.project.getNotifications().then(function (result) {
                 if (result) {
-                    result.forEach(notification => {
+                    for (const notification of result) {
                         if (notification.enabled) {
-                            Object.keys(notification.subscriptions).forEach(sub => {
+                            for (const sub of Object.keys(notification.subscriptions)) {
                                 if (notification.subscriptions[sub]) {
                                     if (!notificationsSubsctiption[sub]) {
                                         notificationsSubsctiption[sub] = [];
@@ -171,13 +182,13 @@ function NotificatorManager(_runtime) {
                                     notificationsSubsctiption[sub].push(temp);
                                     notificationsFound++;
                                 }
-                            });
+                            }
                         }
-                    });
+                    }
                 }
                 resolve();
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         });
     }
@@ -222,12 +233,12 @@ function NotificatorManager(_runtime) {
      */
     var _checkNotifications = function () {
         return new Promise(function (resolve, reject) {
-            var time = new Date().getTime();
+            var time = Date.now();
             // check alarms categorie subscriptions
             runtime.alarmsMgr.getAlarmsStatus().then(alarmsStatus => {
-                Object.keys(alarmsStatus).forEach(stkey => {
+                for (const stkey of Object.keys(alarmsStatus)) {
                     if (alarmsStatus[stkey]) {
-                        if ((notificationsSubsctiption[stkey] && notificationsSubsctiption[stkey].length)) {
+                        if ((notificationsSubsctiption[stkey] && notificationsSubsctiption[stkey].length > 0)) {
                             var statusChanged = !subscriptionStatus[stkey] || subscriptionStatus[stkey] < alarmsStatus[stkey];
                             for (var i = 0; i < notificationsSubsctiption[stkey].length; i++) {
                                 var notification = notificationsSubsctiption[stkey][i];
@@ -239,10 +250,10 @@ function NotificatorManager(_runtime) {
                                         runtime.notificatorMgr.sendMail(mail, null).then(function () {
                                             notification.setNotify(time, stkey);
                                             logger.info(`notificator.notify.successful: ${new Date()} ${notification.name} ${stkey} ${alarmsSummary}`);
-                                        }).catch(function (senderr) {
-                                            logger.error(`notificator.notify.send.failed: ${senderr}`);
+                                        }).catch(function (error) {
+                                            logger.error(`notificator.notify.send.failed: ${error}`);
                                         });
-                                    } catch (e) {
+                                    } catch {
                                         logger.error(`notificator.notify.failed: ${err}`);
                                     }
                                 }
@@ -257,10 +268,10 @@ function NotificatorManager(_runtime) {
                         }
                     }
                     subscriptionStatus[stkey] = alarmsStatus[stkey];
-                });
+                }
                 resolve(true);
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         });
     }
@@ -292,8 +303,8 @@ function NotificatorManager(_runtime) {
                 } else {
                     reject('SMTP data error!');
                 }
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }
         });
     }
@@ -341,7 +352,7 @@ function Notification(id, name, type) {
     this.options;
 
     this.hasSubscriptions = function () {
-        return Object.keys(this.subscriptions).length ? true : false;
+        return Object.keys(this.subscriptions).length > 0 ? true : false;
     }
 
     this.checkToNotify = function (time, changed) {

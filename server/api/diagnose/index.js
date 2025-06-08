@@ -2,8 +2,8 @@
  * 'api/logs': Diagnose API to GET logs data
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 var express = require("express");
 const authJwt = require('../jwt-helper');
 var runtime;
@@ -19,10 +19,10 @@ module.exports = {
     app: function () {
         var diagnoseApp = express();
         diagnoseApp.use(function (req, res, next) {
-            if (!runtime.project) {
-                res.status(404).end();
-            } else {
+            if (runtime.project) {
                 next();
+            } else {
+                res.status(404).end();
             }
         });
 
@@ -33,10 +33,7 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api get logsdir: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1) {
-                res.status(401).json({ error: "unauthorized_error", message: "Unauthorized!" });
-                runtime.logger.error("api get logsdir: Unauthorized!");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups)) {
                 try {
                     var logPath = runtime.logger.logDir();
                     if (!fs.existsSync(logPath)) {
@@ -44,14 +41,17 @@ module.exports = {
                     }
                     var logFiles = fs.readdirSync(logPath);
                     res.json(logFiles);
-                } catch (err) {
-                    if (err.code) {
-                        res.status(400).json({ error: err.code, message: err.message });
+                } catch (error) {
+                    if (error.code) {
+                        res.status(400).json({ error: error.code, message: error.message });
                     } else {
-                        res.status(400).json({ error: "unexpected_error", message: err.toString() });
+                        res.status(400).json({ error: "unexpected_error", message: error.toString() });
                     }
-                    runtime.logger.error("api get logsdir: " + err.message);
+                    runtime.logger.error("api get logsdir: " + error.message);
                 }
+            } else {
+                res.status(401).json({ error: "unauthorized_error", message: "Unauthorized!" });
+                runtime.logger.error("api get logsdir: Unauthorized!");
             }
         });
 
@@ -62,10 +62,7 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api get logs: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1) {
-                res.status(401).json({ error: "unauthorized_error", message: "Unauthorized!" });
-                runtime.logger.error("api get logs: Unauthorized!");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups)) {
                 try {
                     var logFileName = req.query.file || 'fuxa.log';
                     var logPath = runtime.logger.logDir();
@@ -83,14 +80,17 @@ module.exports = {
                             runtime.logger.error("api get logs: " + err);
                         }
                     });
-                } catch (err) {
-                    if (err.code) {
-                        res.status(400).json({ error: err.code, message: err.message });
+                } catch (error) {
+                    if (error.code) {
+                        res.status(400).json({ error: error.code, message: error.message });
                     } else {
-                        res.status(400).json({ error: "unexpected_error", message: err.toString() });
+                        res.status(400).json({ error: "unexpected_error", message: error.toString() });
                     }
-                    runtime.logger.error("api get logs: " + err.message);
+                    runtime.logger.error("api get logs: " + error.message);
                 }
+            } else {
+                res.status(401).json({ error: "unauthorized_error", message: "Unauthorized!" });
+                runtime.logger.error("api get logs: Unauthorized!");
             }
         });
 
@@ -102,23 +102,23 @@ module.exports = {
             var groups = checkGroupsFnc(req);
             if (res.statusCode === 403) {
                 runtime.logger.error("api post sendmail: Tocken Expired");
-            } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                runtime.logger.error("api post sendmail: Unauthorized");
-            } else {
+            } else if (authJwt.adminGroups.includes(groups) ) {
                 if (req.body.params.smtp && !req.body.params.smtp.password && runtime.settings.smtp && runtime.settings.smtp.password) {
                     req.body.params.smtp.password = runtime.settings.smtp.password;
                 }                
                 runtime.notificatorMgr.sendMail(req.body.params.msg, req.body.params.smtp).then(function() {
                     res.end();
-                }).catch(function(err) {
-                    if (err.code) {
-                        res.status(400).json({error:err.code, message: err.message});
+                }).catch(function(error) {
+                    if (error.code) {
+                        res.status(400).json({error:error.code, message: error.message});
                     } else {
-                        res.status(400).json({error:"unexpected_error", message:err.toString()});
+                        res.status(400).json({error:"unexpected_error", message:error.toString()});
                     }
-                    runtime.logger.error("api post sendmail: " + err.message);
+                    runtime.logger.error("api post sendmail: " + error.message);
                 });
+            } else {
+                res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                runtime.logger.error("api post sendmail: Unauthorized");
             }
         });
 

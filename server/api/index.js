@@ -2,7 +2,7 @@
  * 'api/project': API server initialization and general GET/POST
  */
 
-const fs = require('fs');
+const fs = require('node:fs');
 var express = require('express');
 var bodyParser = require('body-parser');
 var authJwt = require('./jwt-helper');
@@ -28,7 +28,7 @@ function init(_server, _runtime) {
     server = _server;
     runtime = _runtime;
     return new Promise(function (resolve, reject) {
-        if (runtime.settings.disableServer !== false) {
+        if (runtime.settings.disableServer === false) {} else {
             apiApp = express();
             
             var maxApiRequestSize = runtime.settings.apiMaxLength || '35mb';
@@ -90,10 +90,7 @@ function init(_server, _runtime) {
                 var groups = verifyGroups(req);
                 if (res.statusCode === 403) {
                     runtime.logger.error("api post settings: Tocken Expired");
-                } else if (authJwt.adminGroups.indexOf(groups) === -1 ) {
-                    res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
-                    runtime.logger.error("api post settings: Unauthorized");
-                } else {
+                } else if (authJwt.adminGroups.includes(groups) ) {
                     try {
                         if (req.body.smtp && !req.body.smtp.password && runtime.settings.smtp && runtime.settings.smtp.password) {
                             req.body.smtp.password = runtime.settings.smtp.password;
@@ -103,15 +100,17 @@ function init(_server, _runtime) {
                         runtime.restart(true).then(function(result) {
                             res.end();
                         });
-                    } catch (err) {
-                        res.status(400).json({ error: "unexpected_error", message: err });
-                        runtime.logger.error("api post settings: " + err);
+                    } catch (error) {
+                        res.status(400).json({ error: "unexpected_error", message: error });
+                        runtime.logger.error("api post settings: " + error);
                     }
+                } else {
+                    res.status(401).json({error:"unauthorized_error", message: "Unauthorized!"});
+                    runtime.logger.error("api post settings: Unauthorized");
                 }
             });
 
             runtime.logger.info('api: init successful!', true);
-        } else {
         }
         resolve();
     });
@@ -140,11 +139,9 @@ function verifyGroups(req) {
     return (runtime.settings && runtime.settings.secureEnabled) ? ((req.tokenExpired) ? 0 : req.userGroups) : authJwt.adminGroups[0];
 }
 
-function start() {
-}
+function start() {}
 
-function stop() {
-}
+function stop() {}
 
 module.exports = {
     init: init,

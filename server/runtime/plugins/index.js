@@ -3,8 +3,8 @@
 */
 
 'use strict';
-var fs = require('fs');
-const path = require('path');
+var fs = require('node:fs');
+const path = require('node:path');
 var device = require('../devices/device');
 const PluginManager = require('live-plugin-manager');
 var events = require("../events").create();
@@ -41,11 +41,11 @@ function init(_settings, log) {
         // define the event listener to check if ready
         var checkInstalled = function () {
             var waiting = 0;
-            Object.values(plugins).forEach((pg) => {
+            for (const pg of Object.values(plugins)) {
                 if (pg.current && events.listenerCount(pg.name)) {
                     waiting++;
                 }
-            });
+            }
             if (!waiting) {
                 resolve();
             }
@@ -66,8 +66,8 @@ function init(_settings, log) {
                 await addPlugin(pg).then(result => {
                     logger.info(`plugin-installed ${pg.name} ${pg.current}`, true);
                     events.emit(pg.name);
-                }).catch(function (err) {
-                    logger.error(`plugins.add-plugin error! ${err}`);
+                }).catch(function (error) {
+                    logger.error(`plugins.add-plugin error! ${error}`);
                 });
                 // addfnc.push(addPlugin(pg));
             }
@@ -111,11 +111,11 @@ function init(_settings, log) {
  */
 function getPlugin(type) {
     var plugin;
-    Object.values(plugins).forEach((pg) => {
+    for (const pg of Object.values(plugins)) {
         if (type.startWith(pg.type)) {
             plugin = pg;
         }
-    });
+    }
     return plugin;
 }
 
@@ -140,18 +140,11 @@ function getPlugins() {
 async function addPlugin(plugin) {
     if (plugin) {
         try {
-            if (plugin.pkg) {
-                await manager.installFromNpm(plugin.name, plugin.version).then(async function (data) {
+            await (plugin.pkg ? manager.installFromNpm(plugin.name, plugin.version).then(async function (data) {
                     await device.loadPlugin(plugin.type, plugin.module);
-                }).catch(function (err) {
-                });
-            } else {
-                await device.loadPlugin(plugin.type, plugin.module);
-            }
-        } catch (err) {
-        }
-    } else {
-    }
+                }).catch(function (error) {}) : device.loadPlugin(plugin.type, plugin.module));
+        } catch {}
+    } else {}
 }
 
 /**
@@ -163,11 +156,11 @@ function removePlugin(plugin) {
             try {
                 manager.uninstall(plugin).then(function (data) {
                     resolve();
-                }).catch(function (err) {
-                    reject(err);
+                }).catch(function (error) {
+                    reject(error);
                 });
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }
         } else {
             reject();
@@ -179,14 +172,14 @@ function removePlugin(plugin) {
  * Get the supported plugins list by check in node_modules if installed
  */
 function _checkPluginsSupported() {
-    Object.values(plugins).forEach((pg) => {
+    for (const pg of Object.values(plugins)) {
         pg.current = '';
-    });
+    }
     // check in node_modules
     module = path.resolve(__dirname, '../../node_modules');
     var dirs = fs.readdirSync(module);
     var data = {};
-    dirs.forEach(function (dir) {
+    for (const dir of dirs) {
         try {
             var file = path.resolve(module, dir + '/package.json');
             if (fs.existsSync(file)) {
@@ -200,14 +193,13 @@ function _checkPluginsSupported() {
                     }
                 }
             }
-        } catch (err) {
-        }
-    });
+        } catch {}
+    }
     // check in _pkg
     var module = settings.packageDir;
     var dirs = fs.readdirSync(module);
     var data = {};
-    dirs.forEach(function (dir) {
+    for (const dir of dirs) {
         try {
             var file = path.resolve(module, dir + '/package.json');
             if (fs.existsSync(file)) {
@@ -222,9 +214,8 @@ function _checkPluginsSupported() {
                     }
                 }
             }
-        } catch (err) {
-        }
-    });
+        } catch {}
+    }
     return plugins;
 }
 

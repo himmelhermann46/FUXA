@@ -24,7 +24,7 @@ function BACNETclient(_data, _logger, _events) {
 
     var devices = {};                   // Devices found { id, maxApdu, segmentation, vendorId }
     var ipAddress = null;
-    var port = 47808;
+    var port = 47_808;
 
     /**
      * Connect the client to BACnet device
@@ -41,8 +41,8 @@ function BACNETclient(_data, _logger, _events) {
                             connected = true;
                             resolve();
                             _checkWorking(false);
-                        }, reason => {
-                            logger.error(`'${data.name}' connect failed! ${reason}`);
+                        }, error => {
+                            logger.error(`'${data.name}' connect failed! ${error}`);
                             _emitStatus('connect-error');
                             _clearVarsValue();
                             reject();
@@ -53,8 +53,8 @@ function BACNETclient(_data, _logger, _events) {
                     } else {
                         reject();
                     }
-                } catch (err) {
-                    logger.error(`'${data.name}' try to connect error! ${err}`);
+                } catch (error) {
+                    logger.error(`'${data.name}' try to connect error! ${error}`);
                     _emitStatus('connect-error');
                     _clearVarsValue();
                     reject();
@@ -81,9 +81,9 @@ function BACNETclient(_data, _logger, _events) {
                     client = null;
                 }
                 resolve(true);
-            } catch (err) {
-                if (err) {
-                    logger.error(`'${data.name}' disconnect failure! ${err}`);
+            } catch (error) {
+                if (error) {
+                    logger.error(`'${data.name}' disconnect failure! ${error}`);
                 }
                 reject();
             }
@@ -113,14 +113,14 @@ function BACNETclient(_data, _logger, _events) {
                             _readObjectList(node.id).then(result => {
                                 resolve(result);
                                 _checkWorking(false);
-                            }, err => {
+                            }, error => {
                                 reject();
                                 _checkWorking(false);
                             });
                         }
-                    } catch (err) {
-                        if (err) {
-                            logger.error(`'${data.name}' browse failure! ${err}`);
+                    } catch (error) {
+                        if (error) {
+                            logger.error(`'${data.name}' browse failure! ${error}`);
                         }
                         reject();
                         _checkWorking(false);
@@ -144,7 +144,7 @@ function BACNETclient(_data, _logger, _events) {
                 let obj = _extractId(data.tags[tagId].address);
                 readObjects.push({objectId: {type: obj.type, instance: obj.instance}, properties: [{id: bacnet.enum.PropertyIdentifier.PRESENT_VALUE}]});
             }
-            if (readObjects.length) {
+            if (readObjects.length > 0) {
                 try {
                     client.readPropertyMultiple(ipAddress, readObjects, (err, value) => {
                         if (err) {        
@@ -153,10 +153,10 @@ function BACNETclient(_data, _logger, _events) {
                             const tmp = {};
                             if (!(value && value.values && value.values[0] && value.values[0].values)) {
                                 logger.error(`'${data.name}' readPropertyMultiple error! unknow`);
-                            } else if (value.values && value.values.length) {
+                            } else if (value.values && value.values.length > 0) {
                                 let result = [];
                                 let errors = [];
-                                value.values.forEach(data => { 
+                                for (const data of value.values) {
                                     if (data.objectId && data.values && data.values[0].id === bacnet.enum.PropertyIdentifier.PRESENT_VALUE) {
                                         let address = _formatId(data.objectId.type, data.objectId.instance);
                                         if (data.values[0].value && data.values[0].value.type === bacnet.enum.ApplicationTag.ERROR) {
@@ -165,10 +165,10 @@ function BACNETclient(_data, _logger, _events) {
                                             result.push({ address: address, value: data.values[0].value[0].value, type:  data.objectId.type });    
                                         }
                                     }
-                                });
-                                if (result.length) {
+                                }
+                                if (result.length > 0) {
                                     let varsValueChanged = _updateVarsValue(result);
-                                    lastTimestampValue = new Date().getTime();
+                                    lastTimestampValue = Date.now();
                                     _emitValues(Object.values(varsValue));
                                     if (this.addDaq) {
                                         this.addDaq(varsValueChanged, data.name);
@@ -202,15 +202,15 @@ function BACNETclient(_data, _logger, _events) {
             requestItemsMap = {};
             var count = Object.keys(data.tags).length;
             for (var id in data.tags) {
-                if (!requestItemsMap[data.tags[id].address]) {
-                    requestItemsMap[data.tags[id].address] = [data.tags[id]];
-                } else {
+                if (requestItemsMap[data.tags[id].address]) {
                     requestItemsMap[data.tags[id].address].push(data.tags[id]);   
+                } else {
+                    requestItemsMap[data.tags[id].address] = [data.tags[id]];
                 }
             }
             logger.info(`'${data.name}' data loaded (${count})`, true);
-        } catch (err) {
-            logger.error(`'${data.name}' load error! ${err}`);
+        } catch (error) {
+            logger.error(`'${data.name}' load error! ${error}`);
         }
     }
 
@@ -258,11 +258,11 @@ function BACNETclient(_data, _logger, _events) {
             var obj = _extractId(data.tags[sigid].address);
             _writeProperty(obj, value).then(result => {
                 logger.info(`'${data.name}' setValue(${sigid}, ${result})`, true);
-            }, reason => {
-                if (reason && reason.stack) {
-                    logger.error(`'${data.name}' _writeProperty error! ${reason.stack}`);
+            }, error => {
+                if (error && error.stack) {
+                    logger.error(`'${data.name}' _writeProperty error! ${error.stack}`);
                 } else {
-                    logger.error(`'${data.name}' _writeProperty error! ${reason}`);
+                    logger.error(`'${data.name}' _writeProperty error! ${error}`);
                 }
             });
         }
@@ -291,10 +291,10 @@ function BACNETclient(_data, _logger, _events) {
     var _connect = function(endpointUrl) {
         return new Promise(function (resolve, reject) {
             ipAddress = endpointUrl;
-            if (endpointUrl.indexOf(':') !== -1) {
-                ipAddress = endpointUrl.substring(0, endpointUrl.indexOf(':'));
-                var temp = endpointUrl.substring(endpointUrl.indexOf(':') + 1);
-                port = parseInt(temp);
+            if (endpointUrl.includes(':')) {
+                ipAddress = endpointUrl.slice(0, Math.max(0, endpointUrl.indexOf(':')));
+                var temp = endpointUrl.slice(Math.max(0, endpointUrl.indexOf(':') + 1));
+                port = Number.parseInt(temp);
             }
             client = new bacnet();//{ apduTimeout: 6000, port: port,
                 //broadcastAddress: ({}).broadcast,
@@ -321,8 +321,8 @@ function BACNETclient(_data, _logger, _events) {
                     }
                 });
                 client.whoIs();
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
                 if (tdelay) {
                     clearTimeout(tdelay);
                 }
@@ -337,7 +337,7 @@ function BACNETclient(_data, _logger, _events) {
     var _askName = function (devs) {
         return new Promise(async function (resolve, reject) {
             var readfnc = [];
-            if (devs.length) {
+            if (devs.length > 0) {
                 for (var index in devs) {
                     var device = devs[index];
                     try {
@@ -345,8 +345,8 @@ function BACNETclient(_data, _logger, _events) {
                         if (rp) {
                             readfnc.push(rp);
                         }
-                    } catch (err) {
-                        logger.error(`'${data.name}' _readProperty error! ${err}`);
+                    } catch (error) {
+                        logger.error(`'${data.name}' _readProperty error! ${error}`);
                     }
                 }
                 Promise.all(readfnc).then(results => {
@@ -360,15 +360,15 @@ function BACNETclient(_data, _logger, _events) {
                         }
                     }
                     resolve();          
-                }, reason => {
-                    if (reason) {
-                        if (reason.stack) {
-                            logger.error(`'${data.name}' _askName error! ${reason.stack}`);
-                        } else if (reason.message) {
-                            logger.error(`'${data.name}' _askName error! ${reason.message}`);
+                }, error => {
+                    if (error) {
+                        if (error.stack) {
+                            logger.error(`'${data.name}' _askName error! ${error.stack}`);
+                        } else if (error.message) {
+                            logger.error(`'${data.name}' _askName error! ${error.message}`);
                         }
                     } else {
-                        logger.error(`'${data.name}' _askName error! ${reason}`);
+                        logger.error(`'${data.name}' _askName error! ${error}`);
                     }
                     reject();
                 });
@@ -387,7 +387,7 @@ function BACNETclient(_data, _logger, _events) {
             client.readProperty(ipAddress, {type: bacnet.enum.ObjectType.DEVICE, instance: instance}, bacnet.enum.PropertyIdentifier.OBJECT_LIST, (err, value) => {
                 if (err) {
                     logger.error(`'${data.name}' _readObjectList error! ${err}`);
-                } else if (value && value.values && value.values.length) {
+                } else if (value && value.values && value.values.length > 0) {
                     var objects = [];
                     var readfnc = [];
                     for (var index in value.values) {
@@ -414,17 +414,17 @@ function BACNETclient(_data, _logger, _events) {
                             }
                         }
                         resolve(objects);          
-                    }, reason => {
-                        if (reason) {
-                            if (reason.stack) {
-                                logger.error(`'${data.name}' _readObjectList error! ${reason.stack}`);
-                            } else if (reason.message) {
-                                logger.error(`'${data.name}' _readObjectList error! ${reason.message}`);
+                    }, error => {
+                        if (error) {
+                            if (error.stack) {
+                                logger.error(`'${data.name}' _readObjectList error! ${error.stack}`);
+                            } else if (error.message) {
+                                logger.error(`'${data.name}' _readObjectList error! ${error.message}`);
                             }
                         } else {
-                            logger.error(`'${data.name}' _readObjectList error! ${reason}`);
+                            logger.error(`'${data.name}' _readObjectList error! ${error}`);
                         }
-                        reject(reason);
+                        reject(error);
                     });
                 }
             });
@@ -453,24 +453,24 @@ function BACNETclient(_data, _logger, _events) {
     var _writeProperty = function(bacobj, value) {
         return new Promise(function (resolve, reject) {
             var tvalue = {type: bacnet.enum.ApplicationTag.NULL, value: value};
-            bacobj.type = parseInt(bacobj.type);
-            bacobj.instance = parseInt(bacobj.instance);
+            bacobj.type = Number.parseInt(bacobj.type);
+            bacobj.instance = Number.parseInt(bacobj.instance);
             if (bacobj.type === bacnet.enum.ObjectType.ANALOG_INPUT || 
                 bacobj.type === bacnet.enum.ObjectType.ANALOG_OUTPUT || 
                 bacobj.type === bacnet.enum.ObjectType.ANALOG_VALUE) {
                 tvalue.type = bacnet.enum.ApplicationTag.REAL;
-                tvalue.value = parseFloat(value);
+                tvalue.value = Number.parseFloat(value);
             } else if (bacobj.type === bacnet.enum.ObjectType.BINARY_INPUT || 
                 bacobj.type === bacnet.enum.ObjectType.BINARY_OUTPUT || 
                 bacobj.type === bacnet.enum.ObjectType.BINARY_VALUE) {
                 tvalue.type = bacnet.enum.ApplicationTag.ENUMERATED;
-                tvalue.value = parseInt(value);
+                tvalue.value = Number.parseInt(value);
             }
 
             client.writeProperty(ipAddress, bacobj, bacnet.enum.PropertyIdentifier.PRESENT_VALUE, [tvalue], { priority: 16 }, (err, result) => {
                 if (err) {
                     reject(err);
-                    console.error('value: ', err);
+                    console.error('value:', err);
                 } else {
                     resolve();
                 }
@@ -511,22 +511,31 @@ function BACNETclient(_data, _logger, _events) {
      * @param {*} type 
      */
     var _getObjectClass = function (type) {
-        if (type === bacnet.enum.ObjectType.DEVICE) {
+        switch (type) {
+        case bacnet.enum.ObjectType.DEVICE: {
             return 'Device';
-        } else if (type === bacnet.enum.ObjectType.ANALOG_INPUT) {
+        }
+        case bacnet.enum.ObjectType.ANALOG_INPUT: {
             return 'Variable';
-        } else if (type === bacnet.enum.ObjectType.ANALOG_OUTPUT) {
+        }
+        case bacnet.enum.ObjectType.ANALOG_OUTPUT: {
             return 'Variable';
-        } else if (type === bacnet.enum.ObjectType.ANALOG_VALUE) {
+        }
+        case bacnet.enum.ObjectType.ANALOG_VALUE: {
             return 'Variable';
-        } else if (type === bacnet.enum.ObjectType.BINARY_INPUT) {
+        }
+        case bacnet.enum.ObjectType.BINARY_INPUT: {
             return 'Variable';
-        } else if (type === bacnet.enum.ObjectType.BINARY_OUTPUT) {
+        }
+        case bacnet.enum.ObjectType.BINARY_OUTPUT: {
             return 'Variable';
-        } else if (type === bacnet.enum.ObjectType.BINARY_VALUE) {
+        }
+        case bacnet.enum.ObjectType.BINARY_VALUE: {
             return 'Variable';
-        } else {
+        }
+        default: {
             return 'Object';
+        }
         }
     }
 
@@ -535,22 +544,31 @@ function BACNETclient(_data, _logger, _events) {
      * @param {*} type 
      */
     var _isObjectToShow = function (type) {
-        if (type === bacnet.enum.ObjectType.DEVICE) {
+        switch (type) {
+        case bacnet.enum.ObjectType.DEVICE: {
             return false;
-        } else if (type === bacnet.enum.ObjectType.ANALOG_INPUT) {
+        }
+        case bacnet.enum.ObjectType.ANALOG_INPUT: {
             return true;
-        } else if (type === bacnet.enum.ObjectType.ANALOG_OUTPUT) {
+        }
+        case bacnet.enum.ObjectType.ANALOG_OUTPUT: {
             return true;
-        } else if (type === bacnet.enum.ObjectType.ANALOG_VALUE) {
+        }
+        case bacnet.enum.ObjectType.ANALOG_VALUE: {
             return true;
-        } else if (type === bacnet.enum.ObjectType.BINARY_INPUT) {
+        }
+        case bacnet.enum.ObjectType.BINARY_INPUT: {
             return true;
-        } else if (type === bacnet.enum.ObjectType.BINARY_OUTPUT) {
+        }
+        case bacnet.enum.ObjectType.BINARY_OUTPUT: {
             return true;
-        } else if (type === bacnet.enum.ObjectType.BINARY_VALUE) {
+        }
+        case bacnet.enum.ObjectType.BINARY_VALUE: {
             return true;
-        } else {
+        }
+        default: {
             return false;
+        }
         }
     }
 
@@ -559,7 +577,7 @@ function BACNETclient(_data, _logger, _events) {
      * @param {*} vars 
      */
     var _updateVarsValue = function (vars) {
-        const timestamp = new Date().getTime();
+        const timestamp = Date.now();
         var someval = false;
         var changed = {};
         for (var index in vars) {
@@ -650,8 +668,8 @@ module.exports = {
         // deviceCloseTimeout = settings.deviceCloseTimeout || 15000;
     },
     create: function (data, logger, events, manager) {
-        try { bacnet = require('node-bacnet'); } catch { }
-        if (!bacnet && manager) { try { bacnet = manager.require('node-bacnet'); } catch { } }
+        try { bacnet = require('node-bacnet'); } catch {}
+        if (!bacnet && manager) { try { bacnet = manager.require('node-bacnet'); } catch {} }
         if (!bacnet) return null;
         return new BACNETclient(data, logger, events);
     }

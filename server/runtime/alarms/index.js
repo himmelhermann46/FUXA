@@ -71,21 +71,19 @@ function AlarmsManager(_runtime) {
             alarmstorage.getAlarms().then(function (alrs) {
                 var result = { highhigh: 0, high: 0, low: 0, info: 0, actions: [] };
                 if (alrs) {
-                    Object.values(alrs).forEach(alr => {
+                    for (const alr of Object.values(alrs)) {
                         result[alr.type]++;
                         if (alr.type === AlarmsTypes.ACTION && !alr.offtime) {
                             var action = actionsProperty[alr.nametype];
-                            if (action.subproperty) {
-                                if (action.subproperty.type === ActionsTypes.POPUP || action.subproperty.type === ActionsTypes.SET_VIEW) {
+                            if (action.subproperty && (action.subproperty.type === ActionsTypes.POPUP || action.subproperty.type === ActionsTypes.SET_VIEW)) {
                                     result.actions.push({ type: action.subproperty.type, params: action.subproperty.actparam })
                                 }
-                            }
                         }
-                    });
+                    }
                 }
                 resolve(result);
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         });
     }
@@ -95,8 +93,8 @@ function AlarmsManager(_runtime) {
      */
     this.getAlarmsValues = function (query, groups) {
         var result = [];
-        Object.keys(alarms).forEach(alrkey => {
-            alarms[alrkey].forEach(alr => {
+        for (const alrkey of Object.keys(alarms)) {
+            for (const alr of alarms[alrkey]) {
                 if (alr.status && alr.type !== AlarmsTypes.ACTION) {
                     var alritem = { name: alr.getId(), type: alr.type, ontime: alr.ontime, offtime: alr.offtime, acktime: alr.acktime, 
                         status: alr.status, text: alr.subproperty.text, group: alr.subproperty.group, 
@@ -116,21 +114,21 @@ function AlarmsManager(_runtime) {
                         result.push(alritem);
                     }
                 }
-            });
-        });
+            }
+        }
         return result;
     }
 
     this.getAlarmsString = function (type) {
         var result = '';
-        Object.keys(alarms).forEach(alrkey => {
-            alarms[alrkey].forEach(alr => {
+        for (const alrkey of Object.keys(alarms)) {
+            for (const alr of alarms[alrkey]) {
                 if (alr.status && alr.type === type && alr.ontime) {
                     var ontime = new Date(alr.ontime);
                     result += `${ontime.toLocaleString()} - ${alr.type} - ${alr.subproperty.text || ''} - ${alr.status} - ${alr.subproperty.group || ''}\n`;
                 }
-            });
-        });
+            }
+        }
         return result;
     }
 
@@ -141,15 +139,15 @@ function AlarmsManager(_runtime) {
         return new Promise(function (resolve, reject) {
             var history = [];
             alarmstorage.getAlarmsHistory(query.from, query.to).then(result => {
-                for (var i = 0; i < result.length; i++) {
-                    var alr = new AlarmHistory(result[i].nametype);
-                    alr.status = result[i].status;
-                    alr.text = result[i].text;
-                    alr.ontime = result[i].ontime;
-                    alr.offtime = result[i].offtime;
-                    alr.acktime = result[i].acktime;
-                    alr.userack = result[i].userack;
-                    alr.group = result[i].grp;
+                for (const element of result) {
+                    var alr = new AlarmHistory(element.nametype);
+                    alr.status = element.status;
+                    alr.text = element.text;
+                    alr.ontime = element.ontime;
+                    alr.offtime = element.offtime;
+                    alr.acktime = element.acktime;
+                    alr.userack = element.userack;
+                    alr.group = element.grp;
                     if (alr.ontime) {
                         var toshow = true;
                         if (alarmsProperty[alr.name] && alarmsProperty[alr.name].property) {
@@ -170,9 +168,9 @@ function AlarmsManager(_runtime) {
                     }
                 }
                 resolve(history);
-            }).catch(function (err) {
-                logger.error('alarms.load-current.failed: ' + err);
-                reject(err);
+            }).catch(function (error) {
+                logger.error('alarms.load-current.failed: ' + error);
+                reject(error);
             });
         });
     }
@@ -186,8 +184,8 @@ function AlarmsManager(_runtime) {
         return new Promise(function (resolve, reject) {
             var changed = [];
             var authError = false;
-            Object.keys(alarms).forEach(alrkey => {
-                alarms[alrkey].forEach(alr => {
+            for (const alrkey of Object.keys(alarms)) {
+                for (const alr of alarms[alrkey]) {
                     if (alr.getId() === alarmname) {
                         var mask = ((alr.tagproperty.permission >> 8) & 255);
                         var canack = (mask) ? mask & groups : 1;
@@ -198,16 +196,16 @@ function AlarmsManager(_runtime) {
                             authError = true;
                         }
                     }
-                });
-            });
+                }
+            }
             if (authError) {
                 reject({code: 401, error:"unauthorized_error", message: "Unauthorized!"});
             } else {
-                if (changed.length) {
+                if (changed.length > 0) {
                     alarmstorage.setAlarms(changed).then(function (result) {
                         resolve(true);
-                    }).catch(function (err) {
-                        reject(err);
+                    }).catch(function (error) {
+                        reject(error);
                     });
                 } else {
                     resolve(false);
@@ -220,8 +218,8 @@ function AlarmsManager(_runtime) {
         return new Promise(function (resolve, reject) {
             alarmstorage.clearAlarms(all).then((result) => {
                 resolve(true);
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         });
     }
@@ -230,41 +228,52 @@ function AlarmsManager(_runtime) {
      * Check the Alarms state machine
      */
     var _checkStatus = function () {
-        if (status === AlarmsStatusEnum.INIT) {
+        switch (status) {
+        case AlarmsStatusEnum.INIT: {
             if (_checkWorking(true)) {
                 _init().then(function () {
                     status = AlarmsStatusEnum.LOAD;
                     _checkWorking(false);
-                }).catch(function (err) {
+                }).catch(function (error) {
                     // devices.woking = null;
                     _checkWorking(false);
                 });
             }
-        } else if (status === AlarmsStatusEnum.LOAD) {
+
+        break;
+        }
+        case AlarmsStatusEnum.LOAD: {
             if (_checkWorking(true)) {
                 _loadProperty().then(function () {
                     _loadAlarms().then(function () {
                         status = AlarmsStatusEnum.IDLE;
                         _emitAlarmsChanged();
                         _checkWorking(false);
-                    }).catch(function (err) {
+                    }).catch(function (error) {
                         _checkWorking(false);
                     });
-                }).catch(function (err) {
+                }).catch(function (error) {
                     _checkWorking(false);
                 });
             }
-        } else if (status === AlarmsStatusEnum.IDLE) {
+
+        break;
+        }
+        case AlarmsStatusEnum.IDLE: {
             if (_checkWorking(true)) {
                 _checkAlarms().then(function (changed) {
                     if (changed) {
                         _emitAlarmsChanged(true);
                     }
                     _checkWorking(false);
-                }).catch(function (err) {
+                }).catch(function (error) {
                     _checkWorking(false);
                 });
             }
+
+        break;
+        }
+        // No default
         }
     }
 
@@ -273,31 +282,31 @@ function AlarmsManager(_runtime) {
      */
     var _checkAlarms = function () {
         return new Promise(function (resolve, reject) {
-            var time = new Date().getTime();
+            var time = Date.now();
             var changed = [];
-            Object.keys(alarms).forEach(alrkey => {
+            for (const alrkey of Object.keys(alarms)) {
                 var groupalarms = alarms[alrkey];
                 var tag = devices.getDeviceValue(alarms[alrkey]['variableSource'], alrkey);
                 if (tag !== null) {
-                    groupalarms.forEach(alr => {
+                    for (const alr of groupalarms) {
                         var value = _checkBitmask(alr, tag.value);
                         if (alr.check(time, tag.ts, value)) {
                             changed.push(alr);
                         }
-                    });
+                    }
                 }
-            });
-            if (changed.length) {
+            }
+            if (changed.length > 0) {
                 _checkActions(changed);
                 alarmstorage.setAlarms(changed).then(function (result) {
-                    changed.forEach(alr => {
+                    for (const alr of changed) {
                         if (alr.toremove) {
                             alr.init();
                         }
-                    });
+                    }
                     resolve(true);
-                }).catch(function (err) {
-                    reject(err);
+                }).catch(function (error) {
+                    reject(error);
                 });
             } else {
                 resolve(false);
@@ -320,9 +329,9 @@ function AlarmsManager(_runtime) {
             alarmstorage.init(settings, logger).then(result => {
                 logger.info('alarms.alarmstorage-init-successful!', true);
                 resolve();
-            }).catch(function (err) {
-                logger.error('project.prjstorage.failed-to-init: ' + err);
-                reject(err);
+            }).catch(function (error) {
+                logger.error('project.prjstorage.failed-to-init: ' + error);
+                reject(error);
             });
         });
     }
@@ -337,7 +346,7 @@ function AlarmsManager(_runtime) {
             runtime.project.getAlarms().then(function (result) {
                 var alarmsFound = 0;
                 if (result) {
-                    result.forEach(alr => {
+                    for (const alr of result) {
                         if (alr.property && alr.property.variableId) {
                             if (!alarms[alr.property.variableId]) {
                                 alarms[alr.property.variableId] = [];
@@ -380,11 +389,11 @@ function AlarmsManager(_runtime) {
                             }
                             alarmsProperty[alr.name] = alr;
                         }
-                    });
+                    }
                 }
                 resolve();
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         });
     }
@@ -398,15 +407,15 @@ function AlarmsManager(_runtime) {
                 alarmstorage.clearAlarms().then(result => {
                     resolve();
                     clearAlarms = false;
-                }).catch(function (err) {
-                    logger.error('alarms.clear-current.failed: ' + err);
-                    reject(err);
+                }).catch(function (error) {
+                    logger.error('alarms.clear-current.failed: ' + error);
+                    reject(error);
                 });
             } else {
                 alarmstorage.getAlarms().then(result => {
-                    Object.keys(alarms).forEach(alrkey => {
+                    for (const alrkey of Object.keys(alarms)) {
                         var groupalarms = alarms[alrkey];
-                        groupalarms.forEach(alr => {
+                        for (const alr of groupalarms) {
                             var alrid = alr.getId();
                             var curalr = result.find(ca => ca.nametype === alrid);
                             if (curalr) {
@@ -415,29 +424,27 @@ function AlarmsManager(_runtime) {
                                 alr.offtime = curalr.offtime;
                                 alr.acktime = curalr.acktime;
                             }
-                        });
-                    });
+                        }
+                    }
                     resolve();
-                }).catch(function (err) {
-                    logger.error('alarms.load-current.failed: ' + err);
-                    reject(err);
+                }).catch(function (error) {
+                    logger.error('alarms.load-current.failed: ' + error);
+                    reject(error);
                 });
             }
         });
     }
 
     var _checkActions = function (alarms) {
-        for (var i = 0; i < alarms.length; i++) {
-            if (alarms[i].type === AlarmsTypes.ACTION && alarms[i].subproperty && !alarms[i].offtime) {
-                if (alarms[i].subproperty.type === ActionsTypes.SET_VALUE) {
-                    var deviceId = devices.getDeviceIdFromTag(alarms[i].subproperty.variableId);
+        for (const alarm of alarms) {
+            if (alarm.type === AlarmsTypes.ACTION && alarm.subproperty && !alarm.offtime && alarm.subproperty.type === ActionsTypes.SET_VALUE) {
+                    var deviceId = devices.getDeviceIdFromTag(alarm.subproperty.variableId);
                     if (deviceId) {
-                        devices.setDeviceValue(deviceId, alarms[i].subproperty.variableId, alarms[i].subproperty.actparam);
+                        devices.setDeviceValue(deviceId, alarm.subproperty.variableId, alarm.subproperty.actparam);
                     } else {
-                        logger.error(`alarms.action.deviceId not found: ${alarms[i].name}`);
+                        logger.error(`alarms.action.deviceId not found: ${alarm.name}`);
                     }
                 }
-            }
         }
     }
     
@@ -521,7 +528,7 @@ function Alarm(name, type, subprop, tagprop) {
         this.toremove = false;
         var onrange = (value >= this.subproperty.min && value <= this.subproperty.max);
         switch(this.status) {
-            case AlarmStatusEnum.VOID:
+            case AlarmStatusEnum.VOID: {
                 //  check to activate
                 if (!onrange) {
                     return false;
@@ -533,7 +540,8 @@ function Alarm(name, type, subprop, tagprop) {
                     this.status = AlarmStatusEnum.ON;
                     return true;
                 }
-            case AlarmStatusEnum.ON:
+            }
+            case AlarmStatusEnum.ON: {
                 // check to deactivate
                 if (!onrange) {
                     this.status = AlarmStatusEnum.OFF;
@@ -551,7 +559,8 @@ function Alarm(name, type, subprop, tagprop) {
                     return true;
                 }
                 return false;
-            case AlarmStatusEnum.OFF:
+            }
+            case AlarmStatusEnum.OFF: {
                 // check to reactivate
                 if (onrange) {
                     this.status = AlarmStatusEnum.ON;
@@ -567,7 +576,8 @@ function Alarm(name, type, subprop, tagprop) {
                     return true;
                 }
                 return false;
-            case AlarmStatusEnum.ACK:
+            }
+            case AlarmStatusEnum.ACK: {
                 // remove if deactivate
                 if (!onrange) {
 					if (this.offtime == 0) {
@@ -577,6 +587,7 @@ function Alarm(name, type, subprop, tagprop) {
                     return true;
                 }
                 return false;
+            }
         }
     }
 
@@ -596,7 +607,7 @@ function Alarm(name, type, subprop, tagprop) {
 
     this.setAck = function (user) {
         if (!this.acktime) {
-            this.acktime = new Date().getTime();
+            this.acktime = Date.now();
             this.lastcheck = 0;
             this.userack = user;
         }

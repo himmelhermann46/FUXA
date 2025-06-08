@@ -3,11 +3,11 @@
 */
 const utils = require('../utils');
 const Pdfmake = require('pdfmake');
-var fs = require('fs')
-var path = require('path');
+var fs = require('node:fs')
+var path = require('node:path');
 // TODO wait compatibility with arm
 // const imageGenerator = require('./helper/image-generator');
-const { time } = require('console');
+const { time } = require('node:console');
 
 'use strict';
 
@@ -31,18 +31,18 @@ function Report(_property, _runtime) {
                             let attachments = { path: filepath };
                             runtime.notificatorMgr.sendMailMessage(null, property.receiver, subject, '', null, attachments).then(function () {
                                 logger.info(`report.sended.successful: ${new Date()} ${property.receiver} ${property.name}`);
-                            }).catch(function (senderr) {
-                                logger.error(`report.send.failed: ${senderr}`);
+                            }).catch(function (error) {
+                                logger.error(`report.send.failed: ${error}`);
                             });
                         }
                         lastExecuted = currentTime;
                         resolve(filepath);
-                    }).catch(function (err) {
-                        reject(err);
+                    }).catch(function (error) {
+                        reject(error);
                     });
                 }
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }  
         });
     }
@@ -57,10 +57,10 @@ function Report(_property, _runtime) {
 
     var _getSampleValues = function (lines, timeRange) {
         let result = {};
-        lines.forEach(line => {
+        for (const line of lines) {
             result[line.id] = [{x: timeRange.begin, y: Math.floor(Math.random() * 100)},
                 {x: timeRange.end, y: Math.floor(Math.random() * 100)}];
-        });
+        }
         return result;
     }
 
@@ -97,8 +97,8 @@ function Report(_property, _runtime) {
                 stream.on("finish", function() {
                     resolve(docPath);
                 });
-            }).catch(function (err) {
-                reject(err);
+            }).catch(function (error) {
+                reject(error);
             });
         });
     }
@@ -114,31 +114,43 @@ function Report(_property, _runtime) {
                 docDefinition['content'] = [];
                 for (let i = 0; i < report.content.items.length; i++) {
                     let item = report.content.items[i];
-                    if (item.type === 'text') {
+                    switch (item.type) {
+                    case 'text': {
                         docDefinition['content'].push({ text: item.text, style: [{ alignment: item.align, fontSize: item.size }] });
-                    } else if (item.type === 'table') {
+
+                    break;
+                    }
+                    case 'table': {
                         await _getTableContent(item).then(itemTable => {
                             const tableDateRange = _getDateRange(item.range);
                             docDefinition['content'].push({ text: `${tableDateRange.begin.toLocaleDateString()} - ${tableDateRange.end.toLocaleDateString()}`,
-                                style: [{ fontSize: item.size }] });
-                            docDefinition['content'].push(itemTable);
+                                style: [{ fontSize: item.size }] }, itemTable);
                         });
-                    } else if (item.type === 'alarms') {
+
+                    break;
+                    }
+                    case 'alarms': {
                         await _getAlarmsContent(item).then(itemAlarms => {
                             const alarmsDateRange = _getDateRange(item.range);
                             docDefinition['content'].push({ text: `${alarmsDateRange.begin.toLocaleDateString()} - ${alarmsDateRange.end.toLocaleDateString()}`,
-                                style: [{ fontSize: item.size }] });
-                            docDefinition['content'].push(itemAlarms);
+                                style: [{ fontSize: item.size }] }, itemAlarms);
                         });
-                    } else if (item.type === 'chart') {
+
+                    break;
+                    }
+                    case 'chart': {
                         await _getChartContent(item).then(itemChart => {
                             docDefinition['content'].push(itemChart);
                         });
+
+                    break;
+                    }
+                    // No default
                     }
                 }
                 resolve(docDefinition);
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }
         });
     }
@@ -157,12 +169,8 @@ function Report(_property, _runtime) {
                 let timeRange = _getDateRange(item.range);
                 let options = { interval: item.interval, functions: fncs };
                 await runtime.daqStorage.getNodesValues(tagsids, timeRange.begin.getTime(), timeRange.end.getTime(), options).then(result => {
-                    if (!result || !result.length) {
-                        values = [item.columns.map(col => { return {text: ''}})];
-                    } else {
-                        values = result;
-                    }
-                }).catch(function (err) {
+                    values = !result || result.length === 0 ? [item.columns.map(col => { return {text: ''}})] : result;
+                }).catch(function (error) {
                     values = [item.columns.map(col => { return {text: 'ERROR'}})];
                 });
                 content['table'] = {
@@ -176,8 +184,8 @@ function Report(_property, _runtime) {
                     ]
                 }
                 resolve(content);
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }                
         });
     }
@@ -189,12 +197,8 @@ function Report(_property, _runtime) {
                 let tagsids = itemChart.chart.lines.map(line => line.id);
                 let timeRange = _getDateRange(itemChart.range);
                 await runtime.daqStorage.getNodesValues(tagsids, timeRange.begin.getTime(), timeRange.end.getTime(), null).then(result => {
-                    if (!result) {
-                        values = {};
-                    } else {
-                        values = result;
-                    }
-                }).catch(function (err) {
+                    values = result ? result : {};
+                }).catch(function (error) {
                     values = {};
                 });
                 await _getChartImage(itemChart, values).then((imageData) => {
@@ -207,11 +211,11 @@ function Report(_property, _runtime) {
                         // height: 70
                     }
                     resolve(content);
-                }).catch(function (err) {
-                    reject(err);
+                }).catch(function (error) {
+                    reject(error);
                 });
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }                
         });
     }
@@ -235,14 +239,16 @@ function Report(_property, _runtime) {
     }
 
     var _getDateRange = function (dateRange) {
-        if (dateRange === ReportDateRangeType.day) {
+        switch (dateRange) {
+        case ReportDateRangeType.day: {
             var yesterday = new Date(currentTime || Date.now());
             yesterday.setDate(yesterday.getDate() - 1);
             return { 
                 begin: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate()), 
                 end: new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59)
             };
-        } else if (dateRange === ReportDateRangeType.week) {
+        }
+        case ReportDateRangeType.week: {
             var lastWeek = new Date(currentTime || Date.now());
             lastWeek = new Date(lastWeek.setDate(lastWeek.getDate() - 7 - (lastWeek.getDay() + 6 ) % 7));
             var diff = lastWeek.getDate() - lastWeek.getDay() + (lastWeek.getDay() == 0 ? -6 : 1); // adjust when day is sunday
@@ -251,7 +257,8 @@ function Report(_property, _runtime) {
                 begin: new Date(lastWeek.getFullYear(), lastWeek.getMonth(), lastWeek.getDate()), 
                 end: new Date(lastWeek.getFullYear(), lastWeek.getMonth(), lastWeek.getDate() + 6, 23, 59, 59)
             };
-        } else if (dateRange === ReportDateRangeType.month) {
+        }
+        case ReportDateRangeType.month: {
             var lastMonth = new Date(currentTime || Date.now());
             lastMonth.setMonth(lastMonth.getMonth() - 1);
             lastMonth.setDate(-1);
@@ -259,11 +266,13 @@ function Report(_property, _runtime) {
                 begin: new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1), 
                 end: new Date(lastMonth.getFullYear(), lastMonth.getMonth(), lastMonth.getDate(), 23, 59, 59)
             };
-        } else {
+        }
+        default: {
             return { 
                 begin: new Date(currentTime || Date.now()), 
                 end: new Date(currentTime || Date.now())
             };
+        }
         }
     }
 
@@ -278,7 +287,7 @@ function Report(_property, _runtime) {
                 const timeRange = _getDateRange(item.range);
                 const query = { from: timeRange.begin.getTime(), to: timeRange.end.getTime() };
                 await runtime.alarmsMgr.getAlarmsHistory(query).then(result => {
-                    if (!result || !result.length) {
+                    if (!result || result.length === 0) {
                         values = [Object.values(item.propertyText).map(col => { 
                             return { text: '', style: [{ alignment: 'left' }] }
                         })];
@@ -287,22 +296,41 @@ function Report(_property, _runtime) {
                         values = result.filter(alr => { if (item.priority[alr.type]) return alr; });
                         values = values.map(alr => {
                             let row = [];
-                            property.forEach((prop) => {
+                            for (const prop of property) {
                                 var text = '';
                                 if (prop === 'ontime' && alr.ontime) text = utils.getFormatDate(new Date(Number(alr.ontime)), 'ymd');
                                 else if (prop === 'offtime' && alr.offtime) text = utils.getFormatDate(new Date(Number(alr.offtime)), 'ymd');
                                 else if (prop === 'acktime' && alr.acktime) text = utils.getFormatDate(new Date(Number(alr.acktime)), 'ymd');
-                                else if (prop === 'text') text = alr.text;
-                                else if (prop === 'group') text = alr.group;
-                                else if (prop === 'userack') text = alr.userack;
-                                else if (prop === 'status') text = item.statusText[alr.status];
-                                else if (prop === 'type') text = item.priorityText[alr.type];
+                                else switch (prop) {
+ case 'text': {
+ text = alr.text;
+ break;
+ }
+ case 'group': {
+ text = alr.group;
+ break;
+ }
+ case 'userack': {
+ text = alr.userack;
+ break;
+ }
+ case 'status': {
+ text = item.statusText[alr.status];
+ break;
+ }
+ case 'type': { {
+ text = item.priorityText[alr.type];
+ // No default
+ }
+ break;
+ }
+ }
                                 row.push({text: text, style: [{fillColor: alr.bkcolor, color: alr.color}]});
-                            });
+                            }
                             return row;
                         })
                      }
-                }).catch(function (err) {
+                }).catch(function (error) {
                     values = [Object.values(item.propertyText).map(col => { return {text: 'ERROR'}})];
                 });
                 content['table'] = {
@@ -316,8 +344,8 @@ function Report(_property, _runtime) {
                     ]
                 }
                 resolve(content);
-            } catch (err) {
-                reject(err);
+            } catch (error) {
+                reject(error);
             }
         });
     }
