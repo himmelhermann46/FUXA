@@ -68,7 +68,7 @@ var utils = module.exports = {
     },
 
     isEmptyObject: function (value) {
-        return value && Object.keys(value).length === 0 && value.constructor === Object;
+        return value != null && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0 && value.constructor === Object;
     },
 
     isObject(value) {
